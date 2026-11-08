@@ -914,7 +914,7 @@ wheels = [
 [[package]]
 name = "pyncd"
 version = "0.1.0"
-source = { git = "https://github.com/starbaser/pyncd.git?rev=d056b4755fad127e48063739126fc2f19192650b#d056b4755fad127e48063739126fc2f19192650b" }
+source = { git = "https://github.com/starbaser/pyncd.git?rev=78f465c67ad95672064c6d3c6205c65fb2083ce4#78f465c67ad95672064c6d3c6205c65fb2083ce4" }
 
 [package.optional-dependencies]
 diagrams = [
@@ -1028,7 +1028,7 @@ tests = [
 requires-dist = [
     { name = "einops", specifier = ">=0.8.2" },
     { name = "numpy", specifier = ">=2" },
-    { name = "pyncd", extras = ["diagrams", "torch"], git = "https://github.com/starbaser/pyncd.git?rev=d056b4755fad127e48063739126fc2f19192650b" },
+    { name = "pyncd", extras = ["diagrams", "torch"], git = "https://github.com/starbaser/pyncd.git?rev=78f465c67ad95672064c6d3c6205c65fb2083ce4" },
     { name = "torch", specifier = ">=2.15", index = "https://download.pytorch.org/whl/cu132" },
 ]
 

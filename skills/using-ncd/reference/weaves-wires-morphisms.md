@@ -305,6 +305,6 @@ Alg layer below captures.
 | placeholders / UIDs, configuration | `fd.UID`, `nm.FreeNumeric`, `term_utilities.generate_config.NumericConfig` | sizes arrive as numerics |
 | autoalignment | `construction_helpers.composition` (`align_axes`, `add_excess_lift`) | none |
 | hypergraph form | `graphs/` (`Multigraph.from_morphism`, `hypergraph_to_morphism`, `recycle`) | none |
-| compilation | `torch_compile.ConstructedModule.construct`; parameter arrays can become explicit operands through `show_grabbed_parameters.grab_parameters`, grouping-block removal and `detape.detape` before construction ([upstream training check](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/notebooks/website/tutorial/check_gradients_in_torch.py)) | none |
+| compilation | `torch_compile.ConstructedModule.construct`; parameter arrays can become explicit operands through `show_grabbed_parameters.grab_parameters`, grouping-block removal and `detape.detape` before construction ([upstream training check](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/website/tutorial/check_gradients_in_torch.py)) | none |
 | diagram | `websocket_transfer`, `data_transfer/term_json.py` | `display/Framework`, `display/HTMLRender` |
 | Alg-level facts (quantisation, caches, cost) | `quantization/`, `caching/`, `performance_modeling/` | `quantization/` labels, caching glyph |

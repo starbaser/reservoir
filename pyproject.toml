@@ -23,7 +23,7 @@ packages = ["src/reservoir"]
 
 [tool.uv.sources]
 # PyNCD, pinned to one commit of the repository. The flake reads the same lock.
-pyncd = { git = "https://github.com/starbaser/pyncd.git", rev = "d056b4755fad127e48063739126fc2f19192650b" }
+pyncd = { git = "https://github.com/starbaser/pyncd.git", rev = "78f465c67ad95672064c6d3c6205c65fb2083ce4" }
 torch = { index = "pytorch-cu132" }
 
 [tool.uv]

@@ -2,11 +2,11 @@
 
 The construction, reading, sizing and compilation surface at PyNCD
 `0eae8e09d7ed53114ae86fc742b4919ee534c7dd`
-([the repository](https://github.com/starbaser/pyncd/tree/d056b4755fad127e48063739126fc2f19192650b), whose `d056b47` adds the relay address
+([the repository](https://github.com/starbaser/pyncd/tree/78f465c67ad95672064c6d3c6205c65fb2083ce4), whose `78f465c` adds the relay address
 configuration, a `torch_compile` fix and the packaging). Its upstream base is
 `a051f8f2`; three fixes address positional `Linear` contraction and graph recycling.
-Start with [the construction tutorial](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/notebooks/base_features/BuildingAModel.ipynb)
-and use [the gradient tutorial](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/notebooks/website/tutorial/check_gradients_in_torch.py)
+Start with [the construction tutorial](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/base_features/BuildingAModel.ipynb)
+and use [the gradient tutorial](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/website/tutorial/check_gradients_in_torch.py)
 for the native compilation pipeline. The examples below distinguish expressions that
 construct, terms that render, and terms the PyTorch backend actually compiles.
 
@@ -95,7 +95,7 @@ axes in the same order.
 | `Maximum`, `Product` | `ops.Product.template(axis)`; `ops.sized(ops.Maximum(), axes)` | reductions | yes |
 | `Dropout` | `ops.Dropout().bc_signature('->')` | elementwise stochastic operator; no rate field at this revision | no dedicated constructor |
 | `Arrange` | `ops.Arrange.template(axis)` | `Nat(\|x\|)[x]` holding `i_x` at `i_x`; no operands | no constructor |
-| `FixedArray`, `ConstantOp`, `Cast`, `Modulo`, `BitwiseXor` | see [operator declarations](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/data_structure/Operators.py) | constants and integer arithmetic that can be authored independently of Torch compilation | no bundled catch-all backend; check the tsncd mirror separately before drawing |
+| `FixedArray`, `ConstantOp`, `Cast`, `Modulo`, `BitwiseXor` | see [operator declarations](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/data_structure/Operators.py) | constants and integer arithmetic that can be authored independently of Torch compilation | no bundled catch-all backend; check the tsncd mirror separately before drawing |
 | `GenericOperator` | `ops.GenericOperator.template('name', 'q d -> q', datatype=...)` | an opaque operator with a name and shapes; reserved for a body that cannot be written | none |
 | `BlockOperator` | `ops.BlockOperator.template(block, 'Name')` | a block as one bold named box; `expand` writes it out | no constructor for the box; compile the body or expanded term where its operators are supported |
 | `ds.TopK` | `ds.TopK.template(axis=n, k=..., name='k/n', form=ds.SelectionForm.WEIGHTS)` | keeps the `k` largest and their positions; forms `WEIGHTS`, `WEIGHTS_SELECT`, `ONLY_WEIGHTS`, `ONLY_SELECTION` | no native constructor at this revision |
@@ -165,7 +165,7 @@ cat.Rearrangement((0, 0), (x,))  # copy in the stride category too
 `.pairwise()` lists `(domain, codomain)` pairs. A `Rearrangement` with an empty mapping
 and empty domain is the identity on the unit and vanishes inside a product.
 The author's construction idioms in
-[the DeepSeek example](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/notebooks/sota/DeepSeekV41Flash/construction_idioms.py)
+[the DeepSeek example](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/sota/DeepSeekV41Flash/construction_idioms.py)
 are example-local, not `construction_helpers.idioms` library exports. Translate a
 helpful idiom using supported upstream primitives within the consuming model.
 
@@ -331,7 +331,7 @@ iteration holds its own weights); a `Broadcasted` is looked up by `type(operator
 `ConstructedModule.operation_registry` (classes declared `class X(ConstructedModule,
 operation_key=ops.Y)`) and then in `functions_registry` (`ConstructedModule.add_function(ops.Y,
 fn, dim=False, semantic=False)`, wrapped by `broadcast_func`)
-([compiler dispatch](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/torch_compile/torch_compile.py#L36)).
+([compiler dispatch](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/torch_compile/torch_compile.py#L36)).
 Registered by importing `torch_compile.torch_compile`: `Einops`, `SoftMax`, `L1Norm`,
 `L2Norm`, `Maximum`, `Product`, `AdditionOp`, `View` (rearrangement only), `Elementwise`
 (as ReLU), `ReLU`, `Arithmetic`, `WeightedTriangularLower`, `Linear` with inputs,
@@ -410,5 +410,5 @@ python notebooks/execute_notebook.py notebooks/base_features/BuildingAModel.ipyn
 ```
 
 These exist in the source checkout only; an installed consumer writes its own checks.
-PyNCD has no project flake or `uv.lock` of its own; from `d056b47` it has a `pyproject.toml`,
+PyNCD has no project flake or `uv.lock` of its own; from `78f465c` it has a `pyproject.toml`,
 so a consuming project installs it as a git dependency and provides the environment.

@@ -65,12 +65,12 @@ The SSA listing of the term reads as follows.
 ```
 
 The construction follows the selective scan of PyNCD's Mamba notebook,
-[`selective_scan.py`](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/notebooks/caching/mamba/selective_scan.py),
+[`selective_scan.py`](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/caching/mamba/selective_scan.py),
 which is the same shape: a recurrence over the tokens written as a repeated block whose
 state is a loop variable. The notes that state the rules are
-[Para Category](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/obsidian/07-para/Para%20Category.md)
+[Para Category](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/obsidian/07-para/Para%20Category.md)
 and
-[Carrying the State of a Scan Between Passes](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/obsidian/08-caching/Carrying%20the%20State%20of%20a%20Scan%20Between%20Passes.md)
+[Carrying the State of a Scan Between Passes](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/obsidian/08-caching/Carrying%20the%20State%20of%20a%20Scan%20Between%20Passes.md)
 in the PyNCD repository.
 
 ## What PyNCD derives from the term, and what it does not
@@ -96,11 +96,11 @@ in the PyNCD repository.
 - **No ridge regression.** The closed-form fit needs a matrix inverse or solve, and
   PyNCD has no such operator. The fit is a forward-pass write to the readout's slot in
   the sense of PyNCD's
-  [Training](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/obsidian/07-para/Training.md)
+  [Training](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/obsidian/07-para/Training.md)
   note, and this project performs it in Torch.
 - **No parallel form over time.** A tanh recurrence is a non-associative operation over
   the step axis, which PyNCD's
-  [Design Space](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/obsidian/06-practice/Design%20Space.md)
+  [Design Space](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/obsidian/06-practice/Design%20Space.md)
   note lists outside the rewrites that split a fold into chunks. The loop is the only
   form, which is the correct form for a reservoir.
 

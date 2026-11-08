@@ -1,7 +1,7 @@
 # Rulings on how a model is written in PyNCD
 
-Condensed from PyNCD's [model rulings](<https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/obsidian/06-practice/Representing%20Models.md>)
-and asserted [construction tutorial](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/notebooks/base_features/BuildingAModel.ipynb),
+Condensed from PyNCD's [model rulings](<https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/obsidian/06-practice/Representing%20Models.md>)
+and asserted [construction tutorial](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/base_features/BuildingAModel.ipynb),
 read at PyNCD `0eae8e09d7ed53114ae86fc742b4919ee534c7dd`.
 The note records modelling choices; the notebook demonstrates executable constructions.
 For a consumer-owned expression that both draws and compiles, start with
@@ -188,7 +188,7 @@ In the order a construction meets them.
   parameter. For explicit weight operands, use `show_grabbed_parameters.grab_parameters`,
   bind sizes, remove grouping blocks, `detape.detape`, then
   `torch_compile.ConstructedModule.construct`, as the
-  [upstream training check](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/notebooks/website/tutorial/check_gradients_in_torch.py)
+  [upstream training check](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/website/tutorial/check_gradients_in_torch.py)
   does. Do not promise that this route expands an arbitrary nested `ParaWrap`.
 - A weight is not lifted over a batch axis. State the batch axis in the einsum beside the
   weight, `'x m, m f -> x f'`.

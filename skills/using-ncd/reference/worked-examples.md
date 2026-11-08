@@ -2,7 +2,7 @@
 
 Start with [the consumer-owned tutorial model](../scripts/tutorial_model.py): its
 construction is the same expression used for compilation and drawing. PyNCD's asserted
-[Building a Model notebook](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/notebooks/base_features/BuildingAModel.ipynb)
+[Building a Model notebook](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/base_features/BuildingAModel.ipynb)
 shows direct identity wires for ordinary intermediate results, compact
 `ops.BlockOperator` boxes for ordinary components, and `ParaBlockOperator` for boxes
 whose layers really read or write a tape. The first examples below were checked at
@@ -208,7 +208,7 @@ convolution = convolution_matrix @ ops.Linear.template(2, output_channels)
 The stride morphism reads `R[x, c_in]` and writes `R[x', w, c_in]`; the `Linear` consumes
 the last two axes (window and input channels) at every output position. This is a
 valid circuit construction, not proof that the stock PyTorch compiler implements the
-affine `View`. The [upstream numerical tutorial](https://github.com/starbaser/pyncd/blob/d056b4755fad127e48063739126fc2f19192650b/notebooks/website/tutorial/check_gradients_in_torch.py)
+affine `View`. The [upstream numerical tutorial](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/website/tutorial/check_gradients_in_torch.py)
 registers a strided-read constructor for its own checks; a consuming project may do
 likewise, checking values and gradients against an independent implementation.
 
