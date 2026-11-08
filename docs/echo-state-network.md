@@ -72,16 +72,25 @@ checkout.
 
 ## What PyNCD derives from the term, and what it does not
 
-- **The diagram.** Every class the term holds has a tsncd mirror, and `just render`
-  writes the interactive page and the listing under `outputs/diagrams/`.
+- **The diagram.** Every class the term holds has a tsncd mirror. `just render` writes
+  the standalone page and the listing under `outputs/diagrams/`, `just figures` draws
+  PNG and PDF figures headless, and `just up` with `just send` draws it in the live
+  page viewer. On the page, the three forms and the two themes switch with the
+  buttons, and the inspection box of `W^{out}` opens on the pointer with the readout's
+  formula. The blocks carry their title and formula in the page's records, and this
+  tsncd revision opens no box on a block drawn as a backdrop, only on an operator
+  that carries an expansion.
 - **The parameters.** `show_grabbed_parameters.parameter_arrays` reports `W_out` over
   `(n, p)` and nothing else, so a derived backward pass gives `W_in` and `W` no slot.
   That matches the model, in which only the readout is trained.
-- **No PyTorch compilation of the loop.** `torch_compile` has no rule for a tape seed,
-  an `ops.ConstantOp` or an `aops.CovariantView`, compiles a repeated block only when
-  its repetition is an integer, and reads every `ops.View` as the identity. The
-  numbers come from `reference_torch`, which is a second statement of the equations
-  rather than a derivation from the term.
+- **The numbers.** `torch_compile` has no rule for a tape seed, an `ops.ConstantOp`,
+  an `ops.FixedArray` or an `aops.CovariantView`, compiles a repeated block only when
+  its repetition is an integer, and reads every `ops.View` as the identity, so the
+  loop is not compiled. `src/reservoir/evaluate_term.py` evaluates the term instead,
+  running its loop, its tape and its reindexings on tensors, and
+  `tests/test_evaluate_term.py` checks that the term and `reference_torch` agree to
+  float64 tolerance on the same weights. That agreement is what ties the diagram to
+  the numbers.
 - **No ridge regression.** The closed-form fit needs a matrix inverse or solve, and
   PyNCD has no such operator. The fit is a forward-pass write to the readout's slot in
   the sense of `obsidian/07-para/Training.md`, and this project performs it in Torch.

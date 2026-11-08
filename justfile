@@ -15,6 +15,35 @@ quality:
     uv run ruff check --fix .
     uv run ty check src/
 
-# One interactive HTML page and one SSA listing per model, under outputs/diagrams/.
+# One standalone HTML page and one SSA listing per model, under outputs/diagrams/.
+# The page opens from the disk with no server and no network.
 render:
-    uv run python -m reservoir.render --output-dir outputs/diagrams
+    uv run python -m reservoir.render --delivery page --output-dir outputs/diagrams
+
+# PNG and PDF figures drawn by PyNCD's headless Chromium, under outputs/figures/.
+figures:
+    uv run python -m reservoir.render --delivery headless-png --output-dir outputs/figures
+    uv run python -m reservoir.render --delivery headless-pdf --output-dir outputs/figures
+
+# The relay on localhost:8765 and the live page on http://127.0.0.1:8780/.
+up:
+    process-compose up --detached
+
+down:
+    process-compose down
+
+logs *ARGS:
+    process-compose process logs relay {{ARGS}}
+
+# Send every model to the open page, which redraws it.
+send:
+    uv run python -m reservoir.render --delivery send --output-dir outputs/diagrams
+
+# Capture what the open page draws for every model, as PNG under outputs/figures/.
+capture:
+    uv run python -m reservoir.render --delivery capture --output-dir outputs/figures
+
+# Drive the whole viewer once: open the served page headless, send the model through
+# the relay, capture the page's drawing, and check the image. Needs `just up`.
+check-viewer:
+    uv run python -m reservoir.check_viewer --output-dir outputs/figures

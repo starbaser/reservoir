@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["ty", "ruff", "pytest"]
+dev = ["ty", "ruff", "pytest", "playwright==1.64.1"]
 tests = ["pytest"]
 
 [build-system]

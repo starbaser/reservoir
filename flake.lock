@@ -21,16 +21,15 @@
       "locked": {
         "lastModified": 1793948635,
         "narHash": "sha256-+7jjL14kRVivB/hNmG0U7dq8yPMg2vGj0ormAqT4yFo=",
-        "ref": "main",
+        "owner": "starbaser",
+        "repo": "pyncd",
         "rev": "31956bf3c4ffe76df128022e5e33481ad5f6fddb",
-        "revCount": 16,
-        "type": "git",
-        "url": "ssh://git@git.eigenmage.com/eigenmage/pyncd.git"
+        "type": "github"
       },
       "original": {
-        "ref": "main",
-        "type": "git",
-        "url": "ssh://git@git.eigenmage.com/eigenmage/pyncd.git"
+        "owner": "starbaser",
+        "repo": "pyncd",
+        "type": "github"
       }
     },
     "pyproject-build-systems": {
@@ -94,16 +93,15 @@
       "locked": {
         "lastModified": 1792974614,
         "narHash": "sha256-noynmkqm0BwFVQ/sQj7soWFUQbIV9o/cAMiy4SN5n98=",
-        "ref": "main",
+        "owner": "starbaser",
+        "repo": "tsncd",
         "rev": "b8649a6492c15244cf2b0be49e0acf2e2abb32d7",
-        "revCount": 8,
-        "type": "git",
-        "url": "ssh://git@git.eigenmage.com/eigenmage/tsncd.git"
+        "type": "github"
       },
       "original": {
-        "ref": "main",
-        "type": "git",
-        "url": "ssh://git@git.eigenmage.com/eigenmage/tsncd.git"
+        "owner": "starbaser",
+        "repo": "tsncd",
+        "type": "github"
       }
     },
     "uv2nix": {

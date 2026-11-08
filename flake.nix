@@ -22,14 +22,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # The private read-only mirrors of PyNCD and tsncd, a matched pair. flake.lock
-    # records the exact revisions.
+    # The public read-only mirrors of PyNCD and tsncd, a matched pair: upstream
+    # mit-zardini-lab plus the reviewed fixes. flake.lock records the exact revisions.
     pyncd = {
-      url = "git+ssh://git@git.eigenmage.com/eigenmage/pyncd.git?ref=main";
+      url = "github:starbaser/pyncd";
       flake = false;
     };
     tsncd = {
-      url = "git+ssh://git@git.eigenmage.com/eigenmage/tsncd.git?ref=main";
+      url = "github:starbaser/tsncd";
       flake = false;
     };
   };
@@ -183,13 +183,26 @@
         let s = perSystem system;
         in {
           default = s.pkgs.mkShell {
-            packages = [ s.devEnv s.pkgs.uv s.pkgs.ruff s.pkgs.just ];
+            packages = [
+              s.devEnv
+              s.pkgs.uv
+              s.pkgs.ruff
+              s.pkgs.just
+              s.pkgs.process-compose
+              s.pkgs.playwright-driver.browsers
+            ];
             env = {
               UV_NO_SYNC = "1";
               UV_PROJECT_ENVIRONMENT = "${s.devEnv}";
               UV_PYTHON = "${s.devEnv}/bin/python";
               UV_PYTHON_DOWNLOADS = "never";
+              # PyNCD's page writer and headless capture read the built bundle here.
               TSNCD_DIST = "${s.tsncdBundle}";
+              # Playwright's own Chromium download does not run on NixOS. The nixpkgs
+              # browsers match the playwright wheel pinned in pyproject.toml.
+              PLAYWRIGHT_BROWSERS_PATH = "${s.pkgs.playwright-driver.browsers}";
+              PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "1";
+              PC_SOCKET_PATH = "/tmp/process-compose-reservoir.sock";
             };
             shellHook = ''
               unset PYTHONPATH

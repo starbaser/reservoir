@@ -1,0 +1,31 @@
+version: "0.5"
+
+# The two long-running processes of the page viewer, started with `just up`.
+#
+# relay  PyNCD's websocket relay between a sending Python process and an open tsncd
+#        page. It reads HOST and PORT, default localhost:8765. The tsncd bundle dials
+#        the port it was built with, 8765, so the relay port is not configurable here.
+# site   tsncd's bundle served at the root, because the page loads its assets from "/",
+#        with the pages `just render` writes under /diagrams/. SITE_PORT selects the
+#        port, default 8780. Open http://127.0.0.1:8780/ for the live page.
+processes:
+  relay:
+    command: >-
+      python -c 'import asyncio, websocket_transfer.websockets_transfer as wst;
+      asyncio.run(wst.DataServer().main())'
+    availability:
+      restart: on_failure
+      backoff_seconds: 2
+      max_restarts: 5
+
+  site:
+    command: >-
+      sh -c 'set -eu;
+      site="$PWD/outputs/site"; rm -rf "$site"; mkdir -p "$site" "$PWD/outputs/diagrams";
+      for entry in "$TSNCD_DIST"/*; do ln -s "$entry" "$site/"; done;
+      ln -s "$PWD/outputs/diagrams" "$site/diagrams";
+      exec python -m http.server "''${SITE_PORT:-8780}" --bind 127.0.0.1 --directory "$site"'
+    availability:
+      restart: on_failure
+      backoff_seconds: 2
+      max_restarts: 5
