@@ -31,6 +31,7 @@ import advanced_axis_dynamics.data_structure.Operators as aops
 import data_structure.Category as cat
 import data_structure.Numeric as nm
 import data_structure.Operators as ops
+import data_structure.StrideCategory as sc
 import data_structure.Term as fd
 import para.data_structure.Para as Para
 import term_utilities.generate_config as generate_config
@@ -48,6 +49,10 @@ class OperatorNotEvaluated(NotImplementedError):
 
 class ArrayNotGiven(KeyError):
     """A `FixedArray` or a `Linear` whose name has no entry among the arrays given."""
+
+
+class LoopWithoutACounter(ValueError):
+    """A repeated block whose tag carries no name, so no counter can be bound."""
 
 
 def name_key(name: fd.DynamicName | str | None) -> str:
@@ -137,7 +142,13 @@ class TermEvaluation:
         if repetition == nm.Integer(1):
             return self.morphism(term=block.body, inputs=inputs)
         count = self.integer(repetition)
-        counter = nm.FreeNumeric.named(block.block_tag.uid._name)
+        counter_name = block.block_tag.uid._name
+        if counter_name is None:
+            raise LoopWithoutACounter(
+                f"the block repeated {count} times names no counter; pass index_name"
+                " to cat.Block.template"
+            )
+        counter = nm.FreeNumeric.named(counter_name)
         taped = any(True for _ in stream_grabs(block.body))
         values = inputs
         for iteration in range(count):
@@ -153,7 +164,7 @@ class TermEvaluation:
         *,
         operand: torch.Tensor,
         weave: cat.Weave,
-        reindexing: cat.Morphism,
+        reindexing: sc.StrideCategory,
         grids: Tensors,
         degree_sizes: tuple[int, ...],
     ) -> torch.Tensor:

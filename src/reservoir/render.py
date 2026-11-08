@@ -21,14 +21,17 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import dataclasses
 import enum
 import io
 import pathlib
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import cast
 
 import agent_display
 import data_structure.Category as cat
+import data_structure.Term as fd
 import websocket_transfer.capture as capture
 import websocket_transfer.websockets_transfer as wst
 from notebooks.display import notebook_diagrams
@@ -79,7 +82,7 @@ def settings_for(
     *, delivery: Delivery, output_dir: pathlib.Path, slug: str
 ) -> notebook_diagrams.DiagramSettings:
     """The settings one delivery draws `slug` with."""
-    shared = dict(
+    shared = notebook_diagrams.DiagramSettings(
         width=WIDTH,
         advanced_display=notebook_diagrams.AdvancedDisplay.INTERACTIVE,
         debug_borders=False,
@@ -87,27 +90,21 @@ def settings_for(
     )
     match delivery:
         case Delivery.PAGE:
-            return notebook_diagrams.DiagramSettings(
-                mode=notebook_diagrams.DiagramMode.HTML, **shared
-            )
-        case Delivery.SEND:
-            return notebook_diagrams.DiagramSettings(
-                mode=notebook_diagrams.DiagramMode.BROWSER, **shared
-            )
-        case Delivery.CAPTURE:
-            return notebook_diagrams.DiagramSettings(
-                mode=notebook_diagrams.DiagramMode.BROWSER, **shared
+            return dataclasses.replace(shared, mode=notebook_diagrams.DiagramMode.HTML)
+        case Delivery.SEND | Delivery.CAPTURE:
+            return dataclasses.replace(
+                shared, mode=notebook_diagrams.DiagramMode.BROWSER
             )
         case Delivery.HEADLESS_PNG | Delivery.HEADLESS_PDF:
             image_format = "pdf" if delivery is Delivery.HEADLESS_PDF else "png"
-            return notebook_diagrams.DiagramSettings(
+            return dataclasses.replace(
+                shared,
                 mode=notebook_diagrams.DiagramMode.INLINE,
                 display_format=notebook_diagrams.DisplayFormat(
                     renderer=notebook_diagrams.DiagramRenderer.HEADLESS,
                     format=image_format,
                     save_to=output_dir / f"{slug}.{image_format}",
                 ),
-                **shared,
             )
 
 
@@ -140,12 +137,12 @@ async def capture_from_the_open_page(
     `show_diagram` presents it, and write the PNG to `path`. Raises when no page
     answers, through `wst.CaptureError`."""
     presented = notebook_diagrams.present_each_side(term, settings)
-    presented, settings, auxiliary = notebook_diagrams.package_auxiliary(
+    packaged, settings, auxiliary = notebook_diagrams.package_auxiliary(
         presented, settings
     )
     with contextlib.redirect_stdout(io.StringIO()):
         image = await wst.capture_term(
-            presented,
+            cast(fd.GeneralTerm, packaged),
             settings=notebook_diagrams.page_settings(settings),
             capture=capture.capture_options("png", 2.0, 16, "auto"),
             timeout=settings.timeout,
