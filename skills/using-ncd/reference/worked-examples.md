@@ -2,14 +2,14 @@
 
 Start with [the consumer-owned tutorial model](../scripts/tutorial_model.py): its
 construction is the same expression used for compilation and drawing. PyNCD's asserted
-[Building a Model notebook](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/base_features/BuildingAModel.ipynb)
+[Building a Model notebook](https://github.com/starbaser/pyncd/blob/main/notebooks/base_features/BuildingAModel.ipynb)
 shows direct identity wires for ordinary intermediate results, compact
 `ops.BlockOperator` boxes for ordinary components, and `ParaBlockOperator` for boxes
 whose layers really read or write a tape. The first examples below were checked at
-upstream `a051f8f2` and the attention core was observed again at fork `f29cb267`.
+upstream and observed again on the fork.
 The graph isomorphism network was historically checked at `20d7040` (three layers,
 19 parameters, output shape `(7, 2)`); these measurements have not been rerun at
-PyNCD `0eae8e09d7ed53114ae86fc742b4919ee534c7dd`.
+PyNCD's `main` branch.
 Use the examples as constructions, then verify the actual compiler route and numerical
 behavior at the revision you consume.
 
@@ -208,7 +208,7 @@ convolution = convolution_matrix @ ops.Linear.template(2, output_channels)
 The stride morphism reads `R[x, c_in]` and writes `R[x', w, c_in]`; the `Linear` consumes
 the last two axes (window and input channels) at every output position. This is a
 valid circuit construction, not proof that the stock PyTorch compiler implements the
-affine `View`. The [upstream numerical tutorial](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/website/tutorial/check_gradients_in_torch.py)
+affine `View`. The [upstream numerical tutorial](https://github.com/starbaser/pyncd/blob/main/notebooks/website/tutorial/check_gradients_in_torch.py)
 registers a strided-read constructor for its own checks; a consuming project may do
 likewise, checking values and gradients against an independent implementation.
 
@@ -348,8 +348,8 @@ def gin(layers):
 
 Its historical test grabbed the weights onto the tape, compiled the detaped term,
 and compared values and gradients against a plain-Torch control reading the same
-weight tensors by slot name. `expand_parametrised_linears` was needed at `a051f8f2`;
-it was not needed at `f29cb267`. The route below reflects that later observation,
+weight tensors by slot name. `expand_parametrised_linears` was needed before the fork's `Linear` fix;
+it was not needed on the fork. The route below reflects that later observation,
 but this example has not been requalified against the current revision:
 
 ```python
@@ -416,7 +416,7 @@ gain's explicit parameter route at the actual compiler revision before training 
 
 The window is the neighbourhood table `N[x, w, x']` supplied as data and read by
 `einsum`. The historical implementation used a table because the stock compiler at
-`a051f8f2` and `f29cb267` did not compile a stride window. PyNCD's current numerical
+Earlier revisions did not compile a stride window. PyNCD's current numerical
 tutorial registers a separate strided-read constructor whose out-of-range values are
 zero; the table is an example choice, not a prohibition on consumer-owned registrations.
 

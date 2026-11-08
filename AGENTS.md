@@ -3,9 +3,8 @@
 Reservoir computing written as neural circuit diagrams with PyNCD. The project holds an
 echo state network as a PyNCD morphism, its step and its readout compiled to PyTorch by
 PyNCD's `torch_compile` and run on the CPU or a GPU, the ridge-regression fit of the
-readout, and the tooling to draw the diagram as a standalone page, as headless PNG and
-PDF figures, and in tsncd's live page viewer. `README.md` is the entry point for a
-person; this file is for an agent working in the repository.
+readout. tsncd draws the diagram. `README.md` is the entry point for a person; this file
+is for an agent working in the repository.
 
 ## Entering the project
 
@@ -17,20 +16,17 @@ document with the change that invalidates it.
 ## Dependencies
 
 - [PyNCD](https://github.com/starbaser/pyncd), the Python algebra of neural circuit
-  diagrams, a git dependency in `uv.lock` pinned to
-  [`78f465c`](https://github.com/starbaser/pyncd/tree/78f465c67ad95672064c6d3c6205c65fb2083ce4).
-  The repository is a fork of
+  diagrams, a git dependency on its `main` branch, which `uv.lock` resolves. The
+  repository is a fork of
   [mit-zardini-lab/pyncd](https://github.com/mit-zardini-lab/pyncd) with reviewed fixes
   and the packaging metadata on top. Its root `CLAUDE.md` and the vault under
   `obsidian/` state how a model is written; read the relevant notes before changing how
   the network is expressed.
-- [tsncd](https://github.com/starbaser/tsncd), the TypeScript renderer, a flake input
-  pinned by `flake.lock` to
-  [`b8649a6`](https://github.com/starbaser/tsncd/tree/b8649a6492c15244cf2b0be49e0acf2e2abb32d7),
-  a fork of [mit-zardini-lab/tsncd](https://github.com/mit-zardini-lab/tsncd).
+- [tsncd](https://github.com/starbaser/tsncd), the TypeScript renderer, from its `main`
+  branch, a fork of [mit-zardini-lab/tsncd](https://github.com/mit-zardini-lab/tsncd).
 - Both are read-only dependencies. Every adaptation lives in this project. The two are a
   matched pair: tsncd constructs every term positionally from PyNCD's field order, so
-  move both pins together and rebuild the bundle after any tsncd change.
+  update both together.
 
 ## Conventions
 
@@ -42,13 +38,13 @@ never skip.
 
 ## Documentation map
 
-| Question                                                                                  | Read                                                                                                                                                                                                                                                                                                                                                                                    |
-| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "How is the echo state network written as a morphism, and what can PyNCD derive from it?" | `docs/echo-state-network.md`                                                                                                                                                                                                                                                                                                                                                            |
-| "How is a recurrence over the steps written in PyNCD?"                                    | PyNCD's [`selective_scan.py`](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/caching/mamba/selective_scan.py) and its note [Carrying the State of a Scan Between Passes](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/obsidian/08-caching/Carrying%20the%20State%20of%20a%20Scan%20Between%20Passes.md) |
-| "How is the network run in Torch through `torch_compile`?"                                | `src/reservoir/run_in_torch.py` and `docs/echo-state-network.md`                                                                                                                                                                                                                                                                                                                        |
-| "How are PyNCD and tsncd pinned?"                                                         | the `pyncd` entry of `pyproject.toml` and `uv.lock`, the `tsncd` input of `flake.nix`, and the tsncd checkout the README names                                                                                                                                                                                                                                                          |
-| "How do I run the network, draw it, start the viewer, or check it end to end?"            | `README.md`, the `justfile`, `src/reservoir/run_echo_state_network.py` and `src/reservoir/render.py`                                                                                                                                                                                                                                                                                    |
+| Question                                                                                  | Read                                                                                                                                                                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "How is the echo state network written as a morphism, and what can PyNCD derive from it?" | `docs/echo-state-network.md`                                                                                                                                                                                                                                                                                    |
+| "How is a recurrence over the steps written in PyNCD?"                                    | PyNCD's [`selective_scan.py`](https://github.com/starbaser/pyncd/blob/main/notebooks/caching/mamba/selective_scan.py) and its note [Carrying the State of a Scan Between Passes](https://github.com/starbaser/pyncd/blob/main/obsidian/08-caching/Carrying%20the%20State%20of%20a%20Scan%20Between%20Passes.md) |
+| "How is the network run in Torch through `torch_compile`?"                                | `src/reservoir/run_in_torch.py` and `docs/echo-state-network.md`                                                                                                                                                                                                                                                |
+| "Where do PyNCD and tsncd come from?"                                                     | the `pyncd` entry of `pyproject.toml`, which names the `main` branch, and `uv.lock`                                                                                                                                                                                                                             |
+| "How do I run the network?"                                                               | `README.md`, the `justfile`, `src/reservoir/run_echo_state_network.py`                                                                                                                                                                                                                                          |
 
 Full `docs/` index:
 
@@ -57,27 +53,23 @@ Full `docs/` index:
 
 `skills/using-ncd/` is an agent skill for writing, reading, compiling and drawing models
 with PyNCD and tsncd: the construction syntax, the rulings on how a model is written,
-the API at the pinned revision, the rendering routes, the integration recipes and the
-theory from the paper, with an executable example under `scripts/`. Read its `SKILL.md`
-before changing the model. An agent runtime that discovers skills from a directory of
-its own can be pointed at, or given a copy of, that folder.
+the API, the rendering routes, the integration recipes and the theory from the paper,
+with an executable example under `scripts/`. Read its `SKILL.md` before changing the
+model. An agent runtime that discovers skills from a directory of its own can be pointed
+at, or given a copy of, that folder.
 
 ## Environment & Gates
 
 Two installation routes exist and `README.md` states both.
 
 - With Nix: `nix develop`, or `direnv allow`. The shell's Python is the uv2nix-built
-  virtual environment, with this package editable and PyNCD built from the pinned
-  commit. `uv` is lock plumbing there (`uv add`, `uv lock`) and never the runtime; after
-  a dependency change, `uv lock` and re-enter the shell. The shell exports `TSNCD_DIST`,
-  the Nix-built bundle, and `PLAYWRIGHT_BROWSERS_PATH`, the nixpkgs browsers of the
-  pinned Playwright.
-- Without Nix: `uv sync` installs everything including PyNCD from its repository,
-  `uv run playwright install chromium` fetches the browser, and tsncd is cloned beside
-  the repository and built as its README says, with `TSNCD_DIST` naming its `dist/`.
-- Test: `just test`. Lint and types: `just quality`. Run: `just run`. Draw:
-  `just render`, `just figures`. Viewer: tsncd's `npm run server` and `npm run dev` in
-  its checkout, then `just send`.
+  virtual environment, with this package editable and PyNCD built from the commit
+  `uv.lock` resolved from `main`. `uv` is lock plumbing there (`uv add`, `uv lock`) and
+  never the runtime; after a dependency change, `uv lock` and re-enter the shell. The
+  shell holds Node 24 for tsncd's npm scripts.
+- Without Nix: `uv sync` installs everything including PyNCD from its repository, and
+  Node 24 comes from nvm as tsncd's README says.
+- Test: `just test`. Lint and types: `just quality`. Run: `just run`.
 
 Verification is proportional: run the focused tests and the static checks on the files
 touched while working, and the whole suite at an integration or landing boundary. Do not
@@ -94,14 +86,11 @@ rerun passing evidence on an unchanged tree.
   rule for a tape slot, so the compiled step is called once per step from Python. Write
   no evaluator of the term in this project; a claim about the term's shape is checked on
   the term, through its domain, codomain, listing and parameters.
-- The live viewer is tsncd's, run in its own checkout by its own `npm run server` and
-  `npm run dev`. This project sends to it through `show_diagram` in `BROWSER` mode and
-  wraps nothing around tsncd or PyNCD's relay.
-- Torch is the CUDA 13.2 wheel from the `pytorch-cu132` index. The flake gives every
-  CUDA wheel the driver runpath, so `libcuda.so.1` comes from the host driver. The tests
-  run the compiled step on the CPU and on every CUDA device present and assert that CUDA
-  is available.
-- `playwright` is pinned to the version of nixpkgs' `playwright-driver` in the locked
-  nixpkgs, and the two move together.
+- tsncd draws the diagram, as its own README says. This project holds no drawing code:
+  no standalone page, no headless figure, no browser automation, no wrapper around tsncd
+  or around PyNCD's relay.
+- Torch comes from PyPI. On Linux the flake gives every CUDA library the driver runpath,
+  so `libcuda.so.1` comes from the host driver. The tests run the compiled step on the
+  CPU and on every CUDA device present.
 - There is no `noxfile.py`. The isolated sessions it would run add nothing over
   `just test` in either installation route.

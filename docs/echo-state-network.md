@@ -64,31 +64,26 @@ The SSA listing of the term reads as follows.
 ```
 
 The construction follows the selective scan of PyNCD's Mamba notebook,
-[`selective_scan.py`](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/caching/mamba/selective_scan.py),
+[`selective_scan.py`](https://github.com/starbaser/pyncd/blob/main/notebooks/caching/mamba/selective_scan.py),
 which is the same shape: a recurrence over the tokens written as a repeated block whose
 state is a loop variable. The notes that state the rules are
-[Para Category](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/obsidian/07-para/Para%20Category.md)
+[Para Category](https://github.com/starbaser/pyncd/blob/main/obsidian/07-para/Para%20Category.md)
 and
-[Carrying the State of a Scan Between Passes](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/obsidian/08-caching/Carrying%20the%20State%20of%20a%20Scan%20Between%20Passes.md)
+[Carrying the State of a Scan Between Passes](https://github.com/starbaser/pyncd/blob/main/obsidian/08-caching/Carrying%20the%20State%20of%20a%20Scan%20Between%20Passes.md)
 in the PyNCD repository.
 
 ## What PyNCD derives from the term, and what it does not
 
-- **The diagram.** Every class the term holds has a tsncd mirror. `just render` writes
-  the standalone page and the listing under `outputs/diagrams/`, `just figures` draws
-  PNG and PDF figures headless, and `just send` draws it in tsncd's page, with tsncd's
-  `npm run server` and `npm run dev` running in its checkout. On the page, the three
-  forms and the two themes switch with the buttons, and the inspection box of `W^{out}`
-  opens on the pointer with the readout's formula. The blocks carry their title and
-  formula in the page's records, and this tsncd revision opens no box on a block drawn
-  as a backdrop, only on an operator that carries an expansion.
+- **The diagram.** Every class the term holds has a tsncd mirror, so tsncd draws it. On
+  the page, the three forms and the two themes switch with the buttons, and the
+  inspection box of `W^{out}` opens on the pointer with the readout's formula.
 - **The parameters.** `show_grabbed_parameters.parameter_arrays` reports the three
   `ops.Linear`s, `W_in` over `(m, n)`, `W` over `(n, n)` and `W_out` over `(n, p)`. The
   model fits `W_out` alone and holds the other two fixed, which is a choice about
   training and not a property of the term.
 - **The numbers.** `src/reservoir/run_in_torch.py` compiles `one_step` and `readout`
   with `torch_compile` by the route of PyNCD's tutorial
-  [`check_gradients_in_torch.py`](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/website/tutorial/check_gradients_in_torch.py):
+  [`check_gradients_in_torch.py`](https://github.com/starbaser/pyncd/blob/main/notebooks/website/tutorial/check_gradients_in_torch.py):
   `grab_parameters`, a `NumericConfig` for the sizes, `remove_grouping_blocks`,
   `detape`, `ConstructedModule.construct`. The compiled step takes `u_t`, `h_{t-1}`, `W`
   and `W_in` and returns `h_t`. `torch_compile` compiles a repeated block only when its
@@ -99,11 +94,11 @@ in the PyNCD repository.
 - **No ridge regression.** The closed-form fit needs a matrix inverse or solve, and
   PyNCD has no such operator. The fit is a forward-pass write to the readout's slot in
   the sense of PyNCD's
-  [Training](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/obsidian/07-para/Training.md)
+  [Training](https://github.com/starbaser/pyncd/blob/main/obsidian/07-para/Training.md)
   note, and this project performs it in Torch.
 - **No parallel form over time.** A tanh recurrence is a non-associative operation over
   the step axis, which PyNCD's
-  [Design Space](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/obsidian/06-practice/Design%20Space.md)
+  [Design Space](https://github.com/starbaser/pyncd/blob/main/obsidian/06-practice/Design%20Space.md)
   note lists outside the rewrites that split a fold into chunks. The loop is the only
   form, which is the correct form for a reservoir.
 

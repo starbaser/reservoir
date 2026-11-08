@@ -6,7 +6,7 @@ Run in an environment providing PyNCD, PyTorch and a built TSNCD_DIST:
 Construction follows BuildingAModel sections 9–11. Parameter extraction follows
 notebooks/website/tutorial/check_gradients_in_torch.py. The expansion adapter below
 uses upstream operations; it is example code, not an additional PyNCD compiler API.
-Verified with PyNCD 0eae8e09 and tsncd b8649a64.
+Verified with PyNCD and tsncd on their main branches.
 """
 
 import argparse

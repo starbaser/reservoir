@@ -1,12 +1,13 @@
 """Run the echo state network from end to end.
 
-    python -m reservoir.run_echo_state_network --device cuda
+    python -m reservoir.run_echo_state_network
 
 The run prints the SSA listing of the PyNCD morphism, compiles its step and its readout
 with PyNCD's `torch_compile`, and performs the delay task on `--device`: it draws a
 random reservoir, runs the compiled step over a random sequence, fits the readout by
 ridge regression to return the input from `--delay` steps before, and reports the
-normalised error on the steps after the fit.
+normalised error on the steps after the fit. `--device` defaults to the first CUDA
+device when there is one and to the CPU otherwise.
 """
 
 from __future__ import annotations
@@ -44,6 +45,10 @@ class Run:
 
     error: float
     """The normalised error of the fitted readout on the steps after the fit."""
+
+
+def default_device() -> torch.device:
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def random_sequence(*, steps: int, seed: int) -> torch.Tensor:
@@ -96,7 +101,7 @@ def run(*, leak: float, delay: int, device: torch.device) -> Run:
 
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--device", type=torch.device, default=torch.device("cuda"))
+    parser.add_argument("--device", type=torch.device, default=default_device())
     parser.add_argument("--leak", type=float, default=1.0)
     parser.add_argument("--delay", type=int, default=1)
     args = parser.parse_args(argv)
@@ -104,7 +109,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     print(result.listing)
     print(
         f"delay task on {result.device}, {UNITS} units, delay {result.delay}: "
-        f"normalised error {result.error:.4f}"
+        f"the fit's normalised error is {result.error:.4f} (0 is a perfect fit)"
     )
 
 

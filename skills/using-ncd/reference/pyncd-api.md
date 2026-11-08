@@ -1,12 +1,11 @@
 # pyncd API surface
 
-The construction, reading, sizing and compilation surface at PyNCD
-`0eae8e09d7ed53114ae86fc742b4919ee534c7dd`
-([the repository](https://github.com/starbaser/pyncd/tree/78f465c67ad95672064c6d3c6205c65fb2083ce4), whose `78f465c` adds the relay address
-configuration, a `torch_compile` fix and the packaging). Its upstream base is
-`a051f8f2`; three fixes address positional `Linear` contraction and graph recycling.
-Start with [the construction tutorial](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/base_features/BuildingAModel.ipynb)
-and use [the gradient tutorial](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/website/tutorial/check_gradients_in_torch.py)
+The construction, reading, sizing and compilation surface of PyNCD on the `main`
+branch of [the repository](https://github.com/starbaser/pyncd/tree/main), which carries
+the relay address configuration, a `torch_compile` fix, the packaging, and three fixes to
+positional `Linear` contraction and graph recycling over its upstream base.
+Start with [the construction tutorial](https://github.com/starbaser/pyncd/blob/main/notebooks/base_features/BuildingAModel.ipynb)
+and use [the gradient tutorial](https://github.com/starbaser/pyncd/blob/main/notebooks/website/tutorial/check_gradients_in_torch.py)
 for the native compilation pipeline. The examples below distinguish expressions that
 construct, terms that render, and terms the PyTorch backend actually compiles.
 
@@ -95,7 +94,7 @@ axes in the same order.
 | `Maximum`, `Product` | `ops.Product.template(axis)`; `ops.sized(ops.Maximum(), axes)` | reductions | yes |
 | `Dropout` | `ops.Dropout().bc_signature('->')` | elementwise stochastic operator; no rate field at this revision | no dedicated constructor |
 | `Arrange` | `ops.Arrange.template(axis)` | `Nat(\|x\|)[x]` holding `i_x` at `i_x`; no operands | no constructor |
-| `FixedArray`, `ConstantOp`, `Cast`, `Modulo`, `BitwiseXor` | see [operator declarations](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/data_structure/Operators.py) | constants and integer arithmetic that can be authored independently of Torch compilation | no bundled catch-all backend; check the tsncd mirror separately before drawing |
+| `FixedArray`, `ConstantOp`, `Cast`, `Modulo`, `BitwiseXor` | see [operator declarations](https://github.com/starbaser/pyncd/blob/main/data_structure/Operators.py) | constants and integer arithmetic that can be authored independently of Torch compilation | no bundled catch-all backend; check the tsncd mirror separately before drawing |
 | `GenericOperator` | `ops.GenericOperator.template('name', 'q d -> q', datatype=...)` | an opaque operator with a name and shapes; reserved for a body that cannot be written | none |
 | `BlockOperator` | `ops.BlockOperator.template(block, 'Name')` | a block as one bold named box; `expand` writes it out | no constructor for the box; compile the body or expanded term where its operators are supported |
 | `ds.TopK` | `ds.TopK.template(axis=n, k=..., name='k/n', form=ds.SelectionForm.WEIGHTS)` | keeps the `k` largest and their positions; forms `WEIGHTS`, `WEIGHTS_SELECT`, `ONLY_WEIGHTS`, `ONLY_SELECTION` | no native constructor at this revision |
@@ -110,11 +109,11 @@ order with nested module names, so name the operators and keep that order in min
 copying parameters into a control.
 
 A `Linear` whose input and output share one axis object, `Linear.template((m,), (m,))`, is a
-full square map `y_j = sum_i x_i W_{ij}`. Observed at `f29cb267`: compiled directly it holds a
+full square map `y_j = sum_i x_i W_{ij}`. Observed on the fork: compiled directly it holds a
 `(3, 3)` weight applied as `x @ W`, and grabbed onto the tape and compiled through the
 tutorial's `compile_pass` it computes `x @ W` too; the fork's `para/validate_linear_positions.py`
 passes its square, repeated, overlapping and interleaved cases forward, backward and transposed.
-At upstream `a051f8f2` the grabbed form read its einsum off axis identity and computed the
+Before the fork's `Linear` fix the grabbed form read its einsum off axis identity and computed the
 diagonal of `W`. The positional fix is present in the stated revision.
 
 The epsilon of a norm: `ops.NO_EPSILON` is `nm.Integer(0)`, exactly zero, and the
@@ -165,7 +164,7 @@ cat.Rearrangement((0, 0), (x,))  # copy in the stride category too
 `.pairwise()` lists `(domain, codomain)` pairs. A `Rearrangement` with an empty mapping
 and empty domain is the identity on the unit and vanishes inside a product.
 The author's construction idioms in
-[the DeepSeek example](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/sota/DeepSeekV41Flash/construction_idioms.py)
+[the DeepSeek example](https://github.com/starbaser/pyncd/blob/main/notebooks/sota/DeepSeekV41Flash/construction_idioms.py)
 are example-local, not `construction_helpers.idioms` library exports. Translate a
 helpful idiom using supported upstream primitives within the consuming model.
 
@@ -331,7 +330,7 @@ iteration holds its own weights); a `Broadcasted` is looked up by `type(operator
 `ConstructedModule.operation_registry` (classes declared `class X(ConstructedModule,
 operation_key=ops.Y)`) and then in `functions_registry` (`ConstructedModule.add_function(ops.Y,
 fn, dim=False, semantic=False)`, wrapped by `broadcast_func`)
-([compiler dispatch](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/torch_compile/torch_compile.py#L36)).
+([compiler dispatch](https://github.com/starbaser/pyncd/blob/main/torch_compile/torch_compile.py#L36)).
 Registered by importing `torch_compile.torch_compile`: `Einops`, `SoftMax`, `L1Norm`,
 `L2Norm`, `Maximum`, `Product`, `AdditionOp`, `View` (rearrangement only), `Elementwise`
 (as ReLU), `ReLU`, `Arithmetic`, `WeightedTriangularLower`, `Linear` with inputs,
@@ -395,10 +394,10 @@ The loops need a final iteration that finds no remaining rewrite. A chain requir
 Likewise, 1,024 tape reads complete with `WRAP_LIMIT = 1025`. Reaching a limit alone
 does not establish that a rule cycles or that the compiler is defective.
 
-Verified on upstream `a051f8f2` and the fork at `988c693d`; the relevant loops are
-unchanged from the stated revision. See the [merge search](https://github.com/mit-zardini-lab/pyncd/blob/a051f8f2df12be97bb438a7b19980513fbe11c36/algebra/merge_into_consumer.py#L241-L262),
-[outer rounds](https://github.com/mit-zardini-lab/pyncd/blob/a051f8f2df12be97bb438a7b19980513fbe11c36/algebra/einops_rearrange.py#L426-L448),
-and [tape wrapping](https://github.com/mit-zardini-lab/pyncd/blob/a051f8f2df12be97bb438a7b19980513fbe11c36/para/data_structure/ParaWrap.py#L171-L210).
+Verified on upstream and on the fork's `main`; the relevant loops are
+unchanged on `main`. See the [merge search](https://github.com/mit-zardini-lab/pyncd/blob/main/algebra/merge_into_consumer.py#L241-L262),
+[outer rounds](https://github.com/mit-zardini-lab/pyncd/blob/main/algebra/einops_rearrange.py#L426-L448),
+and [tape wrapping](https://github.com/mit-zardini-lab/pyncd/blob/main/para/data_structure/ParaWrap.py#L171-L210).
 
 ## Checks inside a checkout
 
@@ -410,5 +409,5 @@ python notebooks/execute_notebook.py notebooks/base_features/BuildingAModel.ipyn
 ```
 
 These exist in the source checkout only; an installed consumer writes its own checks.
-PyNCD has no project flake or `uv.lock` of its own; from `78f465c` it has a `pyproject.toml`,
+PyNCD has no project flake or `uv.lock` of its own; its `main` has a `pyproject.toml`,
 so a consuming project installs it as a git dependency and provides the environment.

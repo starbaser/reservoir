@@ -21,11 +21,9 @@ caches. tsncd takes that term as JSON and draws the neural circuit diagram in a 
 it does no algebra. PyNCD is canonical and tsncd mirrors its data structure class by
 class.
 
-Verified against [PyNCD](https://github.com/starbaser/pyncd) `0eae8e09d7ed53114ae86fc742b4919ee534c7dd`
-and [tsncd](https://github.com/starbaser/tsncd) `b8649a6492c15244cf2b0be49e0acf2e2abb32d7`
-(2026-10-31). The reservoir project pins PyNCD at `78f465c`, which adds the relay
-address configuration, a `torch_compile` fix and the packaging on top of that revision,
-and the links below point at it. PyNCD and tsncd are dependencies: adapt in the
+Written against [PyNCD](https://github.com/starbaser/pyncd) and
+[tsncd](https://github.com/starbaser/tsncd) on their `main` branches, which the links
+below point at. PyNCD and tsncd are dependencies: adapt in the
 consuming project rather than in them, and check the revision a project actually
 consumes before relying on advice here.
 
@@ -50,11 +48,11 @@ the consuming project actually uses.
 
 | Need | Primary source |
 |---|---|
-| Wires, products, held values and lifting | [BuildingAModel, sections 2–4](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/base_features/BuildingAModel.ipynb) |
-| Ordinary boxes, shared values on tape, tape-aware boxes | [BuildingAModel, section 9](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/base_features/BuildingAModel.ipynb), code cells 36, 40, 42 and 44 (zero-based notebook cell indices) |
-| Size binding and direct PyTorch compilation | [BuildingAModel, sections 10–11](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/base_features/BuildingAModel.ipynb) |
-| Parameters, ordered tape operands and gradient comparisons | [check_gradients_in_torch.py](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/website/tutorial/check_gradients_in_torch.py), `compile_pass` and `forward_agrees_with` |
-| Notebook construction helpers | [DeepSeek construction idioms](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/sota/DeepSeekV41Flash/construction_idioms.py) |
+| Wires, products, held values and lifting | [BuildingAModel, sections 2–4](https://github.com/starbaser/pyncd/blob/main/notebooks/base_features/BuildingAModel.ipynb) |
+| Ordinary boxes, shared values on tape, tape-aware boxes | [BuildingAModel, section 9](https://github.com/starbaser/pyncd/blob/main/notebooks/base_features/BuildingAModel.ipynb), code cells 36, 40, 42 and 44 (zero-based notebook cell indices) |
+| Size binding and direct PyTorch compilation | [BuildingAModel, sections 10–11](https://github.com/starbaser/pyncd/blob/main/notebooks/base_features/BuildingAModel.ipynb) |
+| Parameters, ordered tape operands and gradient comparisons | [check_gradients_in_torch.py](https://github.com/starbaser/pyncd/blob/main/notebooks/website/tutorial/check_gradients_in_torch.py), `compile_pass` and `forward_agrees_with` |
+| Notebook construction helpers | [DeepSeek construction idioms](https://github.com/starbaser/pyncd/blob/main/notebooks/sota/DeepSeekV41Flash/construction_idioms.py) |
 
 The [executable example](scripts/tutorial_model.py) combines direct wires, ordinary
 boxes and two layers that read one published activation. It checks values and gradients

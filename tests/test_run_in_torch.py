@@ -1,5 +1,5 @@
 """The step PyNCD compiles computes the update the equations state, on the CPU and on
-every CUDA device of the machine, and the readout fit by ridge regression recovers a
+every CUDA device the machine has, and the readout fit by ridge regression recovers a
 delayed input.
 
 The delay task asks the readout to return the input from `delay` steps before. A
@@ -55,9 +55,7 @@ def states_of(reservoir: reservoir_weights.ReservoirWeights) -> torch.Tensor:
     )
 
 
-def test_cuda_is_available_and_the_build_covers_every_installed_gpu() -> None:
-    assert torch.cuda.is_available()
-    assert torch.cuda.device_count() >= 1
+def test_the_build_covers_every_installed_gpu() -> None:
     supported = torch.cuda.get_arch_list()
     for index in range(torch.cuda.device_count()):
         major, minor = torch.cuda.get_device_capability(index)

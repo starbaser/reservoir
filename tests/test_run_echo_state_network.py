@@ -1,7 +1,6 @@
 """The end-to-end run prints the listing and recovers the delayed input."""
 
 import pytest
-import torch
 
 from reservoir import run_echo_state_network
 
@@ -15,8 +14,8 @@ def test_the_run_prints_the_listing_and_the_error(
     assert "normalised error" in out
 
 
-def test_the_delay_task_runs_on_a_gpu() -> None:
+def test_the_delay_task_recovers_the_input_on_the_default_device() -> None:
     error = run_echo_state_network.delay_task(
-        leak=1.0, delay=1, device=torch.device("cuda")
+        leak=1.0, delay=1, device=run_echo_state_network.default_device()
     )
     assert error < 0.01

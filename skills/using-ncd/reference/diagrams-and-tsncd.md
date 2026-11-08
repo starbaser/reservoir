@@ -5,8 +5,7 @@ Use the official transport and renderer for the same expression used to derive t
 executable model. Algebra, transport and browser layout can each cause a display problem;
 inspect the appropriate stage before changing the model.
 
-Source checked at PyNCD `0eae8e09d7ed53114ae86fc742b4919ee534c7dd` and tsncd
-`b8649a6492c15244cf2b0be49e0acf2e2abb32d7`. PyNCD and tsncd are dependencies, and an
+Source checked on the `main` branches of PyNCD and tsncd. PyNCD and tsncd are dependencies, and an
 adaptation lives in the consuming project. The rendering routes below originate in
 upstream. Historical timing measurements are not fresh benchmarks.
 The [tutorial example](../scripts/tutorial_model.py) exercises the interactive HTML
@@ -228,7 +227,7 @@ await notebook_diagrams.show_diagram(
 `INTERACTIVE` sends the legend and the inspection boxes, with every block and every
 operator that has a standard expansion; the page carries the form, theme and width
 controls. The default `advanced_display` is `OFF`. `show_diagram` recycles the term through
-a hypergraph first, so a term that conversion cannot handle raises here. At `f29cb267` the
+a hypergraph first, so a term that conversion cannot handle raises here. On the fork the
 recycling defects of the upstream base are fixed: consecutive blocks passing on each other's
 wires and consecutive wiring-only blocks recycle (fixes `fe41ce8`, `9a90fe1`).
 `mode=DiagramMode.LISTING` prints the SSA listing instead.

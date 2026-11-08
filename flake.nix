@@ -21,17 +21,13 @@
       inputs.uv2nix.follows = "uv2nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    # tsncd, the renderer, whose bundle the flake builds. PyNCD is a git dependency
-    # in uv.lock, pinned to one commit there, and uv2nix fetches it from that lock.
-    # The two are a matched pair, so move the pins together.
-    tsncd = {
-      url = "github:starbaser/tsncd";
-      flake = false;
-    };
   };
 
-  outputs = { self, nixpkgs, uv2nix, pyproject-nix, pyproject-build-systems, tsncd, ... }:
+  # PyNCD is a git dependency in uv.lock, pinned to one commit there, and uv2nix
+  # fetches it from that lock. tsncd is the git submodule tsncd/, pinned by its
+  # gitlink and run by its own npm scripts. The two are a matched pair, so move the
+  # pins together.
+  outputs = { self, nixpkgs, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
     let
       inherit (nixpkgs) lib;
       forAllSystems = lib.genAttrs [ "x86_64-linux" "aarch64-linux" ];
@@ -43,42 +39,18 @@
         members = [ "reservoir" ];
       };
 
-      # tsncd's production bundle. PyNCD's page writer and headless capture read it
-      # through TSNCD_DIST.
-      mkTsncdBundle = pkgs:
-        let manifest = builtins.fromJSON (builtins.readFile "${tsncd}/package.json");
-        in pkgs.buildNpmPackage {
-          pname = manifest.name;
-          inherit (manifest) version;
-          src = tsncd;
-          nodejs = pkgs.nodejs_24;
-          npmDepsHash = "sha256-bH3DY2wG6U1S4T4E2Ok+UYflahRUNQnzGw15A+7+O0E=";
-          installPhase = ''
-            runHook preInstall
-            mkdir -p "$out"
-            cp -r dist/. "$out/"
-            runHook postInstall
-          '';
-          doInstallCheck = true;
-          installCheckPhase = ''
-            runHook preInstallCheck
-            test -s "$out/index.html"
-            test -n "$(find "$out/assets" -name 'main.*.js' -print -quit)"
-            runHook postInstallCheck
-          '';
-        };
-
       perSystem = system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
           python = pkgs.python314;
-          # The CUDA wheels of Torch 2.15 (cu132). libcuda.so.1 comes from the host
-          # driver rather than a Nix closure, so every CUDA library gets the NixOS
+          # The CUDA libraries the Linux wheel of Torch 2.15 depends on. libcuda.so.1
+          # comes from the host driver rather than a Nix closure, so each gets the NixOS
           # driver runpath and keeps the wheel's own $ORIGIN runpaths. The wheels find
           # one another through $ORIGIN in a flat site-packages, and uv2nix builds each
           # wheel on its own, so autoPatchelf is taught every sibling library directory.
           nvidiaPackages = [
             "nvidia-cublas"
+            "nvidia-cuda-cccl"
             "nvidia-cuda-cupti"
             "nvidia-cuda-nvrtc"
             "nvidia-cuda-runtime"
@@ -164,7 +136,6 @@
           ]);
         in {
           inherit pkgs pythonSet;
-          tsncdBundle = mkTsncdBundle pkgs;
           devEnv = editablePythonSet.mkVirtualEnv "reservoir-dev-env" workspace.deps.all;
         };
     in {
@@ -176,21 +147,14 @@
               s.devEnv
               s.pkgs.uv
               s.pkgs.just
-              # tsncd's own `npm install`, `npm run build`, `npm run server` and `npm run dev`.
+              # tsncd's own `npm install`, `npm run server` and `npm run dev` in tsncd/.
               s.pkgs.nodejs_24
-              s.pkgs.playwright-driver.browsers
             ];
             env = {
               UV_NO_SYNC = "1";
               UV_PROJECT_ENVIRONMENT = "${s.devEnv}";
               UV_PYTHON = "${s.devEnv}/bin/python";
               UV_PYTHON_DOWNLOADS = "never";
-              # PyNCD's page writer and headless capture read the built bundle here.
-              TSNCD_DIST = "${s.tsncdBundle}";
-              # Playwright's own Chromium download does not run on NixOS. The nixpkgs
-              # browsers match the playwright wheel pinned in pyproject.toml.
-              PLAYWRIGHT_BROWSERS_PATH = "${s.pkgs.playwright-driver.browsers}";
-              PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "1";
             };
             shellHook = ''
               unset PYTHONPATH
@@ -204,10 +168,7 @@
         let s = perSystem system;
         in {
           default = s.pythonSet.mkVirtualEnv "reservoir-env" workspace.deps.default;
-          tsncd = s.tsncdBundle;
         }
       );
-
-      checks = forAllSystems (system: { tsncd = (perSystem system).tsncdBundle; });
     };
 }

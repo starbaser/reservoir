@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["ty", "ruff", "pytest", "playwright==1.64.1"]
+dev = ["ty", "ruff", "pytest"]
 tests = ["pytest"]
 
 [build-system]
@@ -22,17 +22,11 @@ build-backend = "hatchling.build"
 packages = ["src/reservoir"]
 
 [tool.uv.sources]
-# PyNCD, pinned to one commit of the repository. The flake reads the same lock.
-pyncd = { git = "https://github.com/starbaser/pyncd.git", rev = "78f465c67ad95672064c6d3c6205c65fb2083ce4" }
-torch = { index = "pytorch-cu132" }
+# PyNCD from the main branch of the repository. uv.lock records the commit it resolved.
+pyncd = { git = "https://github.com/starbaser/pyncd.git", branch = "main" }
 
 [tool.uv]
 no-build-package = ["torch"]
-
-[[tool.uv.index]]
-name = "pytorch-cu132"
-url = "https://download.pytorch.org/whl/cu132"
-explicit = true
 
 [tool.ruff]
 line-length = 88

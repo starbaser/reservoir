@@ -46,25 +46,13 @@ holds this skill is the worked example of every route below.
 - Neither repository carries a LICENSE file at these revisions; the papers are CC BY
   4.0. Record the question before redistributing.
 
-## Pins
+## Sources
 
-| Package | Revision                                                | Upstream base                                           | Source                                   |
-| ------- | ------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------- |
-| PyNCD   | `78f465c67ad95672064c6d3c6205c65fb2083ce4` (2026-11-08) | `a051f8f2df12be97bb438a7b19980513fbe11c36` (2026-10-02) | `https://github.com/starbaser/pyncd.git` |
-| tsncd   | `b8649a6492c15244cf2b0be49e0acf2e2abb32d7` (2026-10-25) | `70034600050b8297a3fe91ca7b6cc75c1d26bbc2` (2026-10-02) | `https://github.com/starbaser/tsncd.git` |
-
-Over its base, PyNCD carries `fe41ce8` (`graphs`: a pass-through wire is held as an
-identity only for the block that writes it), `78c7a89` (`linear`: a parametrised
-`Linear` or `Transpose` labels every target position separately, so `Linear((m,), (m,))`
-is a square map in forward and reverse), `9a90fe1` (`graphs`: wiring-only, discarded and
-identity blocks and loop ports survive recycling), two `Term` fixes to uid equality,
-`988c693` (the relay reads `HOST` and `PORT`), `31956bf` (`torch_compile`:
-`weave_displacement` matches shape entries as instances) and `78f465c` (the packaging).
-tsncd `b8649a6` adds only its guidance to its upstream base.
-
-The `npmDepsHash` of tsncd `b8649a6` under Node 24 is
-`sha256-bH3DY2wG6U1S4T4E2Ok+UYflahRUNQnzGw15A+7+O0E=`. A pin that changes `package.json`
-or `package-lock.json` needs a new hash.
+Both come from the `main` branch of the forks, `https://github.com/starbaser/pyncd.git`
+and `https://github.com/starbaser/tsncd.git`, which carry the reviewed fixes and the
+packaging metadata over [mit-zardini-lab/pyncd](https://github.com/mit-zardini-lab/pyncd)
+and [mit-zardini-lab/tsncd](https://github.com/mit-zardini-lab/tsncd). A consumer's lock
+records the commit it resolved; the manifest names the branch.
 
 ## Route 1: plain uv
 
@@ -77,7 +65,7 @@ requires-python = ">= 3.13"
 dependencies = ["einops>=0.8.2", "numpy>=2", "pyncd[diagrams,torch]", "torch>=2.5"]
 
 [tool.uv.sources]
-pyncd = { git = "https://github.com/starbaser/pyncd.git", rev = "78f465c67ad95672064c6d3c6205c65fb2083ce4" }
+pyncd = { git = "https://github.com/starbaser/pyncd.git", branch = "main" }
 ```
 
 Then `uv lock && uv sync`. For the headless capture add `playwright` and run
@@ -138,12 +126,11 @@ With Nix, Route 2's `mkTsncdBundle` builds `dist/` reproducibly. Without it:
 
 ```bash
 git clone https://github.com/starbaser/tsncd.git && cd tsncd
-git checkout b8649a6492c15244cf2b0be49e0acf2e2abb32d7
 npm ci && npm run build            # writes dist/
 export TSNCD_DIST="$PWD/dist"
 ```
 
-The reservoir repository's README names this checkout beside the repository.
+The reservoir repository holds this checkout as the git submodule `tsncd/`.
 `websocket_transfer.headless.find_dist` resolves an explicit `dist=` argument, then
 `$TSNCD_DIST`, then a `tsncd/dist` or `tsncd-public/dist` sibling of the pyncd package
 directory. An installed pyncd has no such sibling, so every consumer sets `TSNCD_DIST`.
@@ -166,7 +153,7 @@ into it.
 `torch_compile.ConstructedModule.construct` directly compiles a `Linear` with inputs and
 holds its weight as an `nn.Parameter`. A zero-input `Linear`, used to author a parameter
 array, needs PyNCD's tape pipeline. The
-[gradient tutorial](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/website/tutorial/check_gradients_in_torch.py)
+[gradient tutorial](https://github.com/starbaser/pyncd/blob/main/notebooks/website/tutorial/check_gradients_in_torch.py)
 uses `grab_parameters`, binds sizes, removes grouping blocks, calls `detape`, then
 compiles the resulting pure expression. Follow that pipeline when the caller owns named
 weight tensors and supplies them after the model inputs:
@@ -213,7 +200,7 @@ parameters all ride input-bearing `Linear`s may repeat a block, as shown by
 Fix `78c7a89` labels the target positions separately, so a grabbed `Linear((m,), (m,))`
 contracts as a full square map; the tutorial's `compile_pass` needs no
 `linear_expansion.expand_parametrised_linears`. See
-[the positional linear validator](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/para/validate_linear_positions.py).
+[the positional linear validator](https://github.com/starbaser/pyncd/blob/main/para/validate_linear_positions.py).
 
 A consumer can add local numerical constructors for operators that have no PyTorch
 constructor. Both `ConstructedModule.operation_registry` and `functions_registry` are
