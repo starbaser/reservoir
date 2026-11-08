@@ -32,8 +32,11 @@ up:
 down:
     process-compose down
 
-logs *ARGS:
-    process-compose process logs relay {{ARGS}}
+# The log of one viewer process, relay or site, from the file process-compose writes.
+# process-compose 1.122.0 answers its own `process logs` command with Not Found over the
+# unix socket, so the file is read directly.
+logs process='relay' *ARGS:
+    tail {{ARGS}} outputs/logs/{{process}}.log
 
 # Send every model to the open page, which redraws it.
 send:
