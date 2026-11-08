@@ -22,7 +22,7 @@ equations in Torch.
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | the sequence `u` over `t` steps | the domain array `R[t, m]`                                                                                                                                              |
 | `W_in u_t` at every step        | `ops.FixedArray` for `W_in` contracted with the sequence by `einsum`, before the loop, broadcast over `t`                                                               |
-| the recurrence over `t`         | a `cat.Block` repeated `                                                                                                                                                | t   | `times whose tag names the counter`i_t` |
+| the recurrence over `t`         | a `cat.Block` repeated `\|t\|` times whose tag names the counter `i_t`                                                                                                  |
 | `u_t` inside step `i_t`         | an `ops.View` whose row has no domain axis and the shift `i_t`                                                                                                          |
 | `h_{t-1}` and `h_t`             | a loop variable on the tape slot `h`: `Para.StreamGrab` reads the state the iteration starts from and `Para.StreamDrop` writes the state the next iteration starts from |
 | `h_{-1} = 0`                    | `ops.ConstantOp` zeros dropped on the slot before the loop                                                                                                              |
