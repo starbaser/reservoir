@@ -9,6 +9,10 @@ for, and the readout itself.
 The index conventions follow the morphism. `W_in` is over `(inputs, units)` and
 `W` over `(units, units)`, so a drive is `u @ W_in` and the recurrent term is
 `h @ W`. `W_out` is over `(units, outputs)`, so the readout is `H @ W_out`.
+
+Every function computes on the device its tensors live on. `random_reservoir` places
+the weights, and the rest follow them, so one call with `device=torch.device("cuda")`
+runs the whole reference on a GPU.
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ from dataclasses import dataclass
 import torch
 
 DTYPE = torch.float64
+CPU = torch.device("cpu")
 
 
 @dataclass(frozen=True)
@@ -40,6 +45,7 @@ def random_reservoir(
     spectral_radius: float,
     input_scale: float,
     seed: int,
+    device: torch.device = CPU,
 ) -> ReservoirWeights:
     """Fixed random weights: uniform entries, with `W` scaled so its largest
     eigenvalue has modulus `spectral_radius` and `W_in` scaled by `input_scale`.
@@ -50,7 +56,10 @@ def random_reservoir(
         leak: The leak rate of the update, in `(0, 1]`.
         spectral_radius: The modulus of the largest eigenvalue of `W` after scaling.
         input_scale: The half-width of the uniform entries of `W_in`.
-        seed: The seed of the generator the entries are drawn from.
+        seed: The seed of the generator the entries are drawn from. The entries are
+            drawn on the CPU whatever the device, so one seed gives one reservoir
+            everywhere.
+        device: The device the weights are placed on.
     """
     generator = torch.Generator().manual_seed(seed)
     input_weights = (
@@ -59,8 +68,8 @@ def random_reservoir(
     unscaled = torch.rand(units, units, generator=generator, dtype=DTYPE) * 2 - 1
     radius = torch.linalg.eigvals(unscaled).abs().max()
     return ReservoirWeights(
-        input_weights=input_weights,
-        recurrent_weights=unscaled * (spectral_radius / radius),
+        input_weights=input_weights.to(device),
+        recurrent_weights=(unscaled * (spectral_radius / radius)).to(device),
         leak=leak,
     )
 
@@ -72,11 +81,12 @@ def run_reservoir(
     zero state.
 
     Args:
-        weights: The fixed weights and the leak rate.
-        input_sequence: The inputs over `(steps, inputs)`.
+        weights: The fixed weights and the leak rate, which name the device.
+        input_sequence: The inputs over `(steps, inputs)`, moved to that device.
     """
-    drives = input_sequence.to(DTYPE) @ weights.input_weights
-    state = torch.zeros(weights.recurrent_weights.shape[0], dtype=DTYPE)
+    device = weights.recurrent_weights.device
+    drives = input_sequence.to(device=device, dtype=DTYPE) @ weights.input_weights
+    state = torch.zeros(weights.recurrent_weights.shape[0], dtype=DTYPE, device=device)
     states = []
     for drive in drives:
         activation = torch.tanh(drive + state @ weights.recurrent_weights)
@@ -99,8 +109,11 @@ def fit_readout(
     if ridge <= 0:
         raise ValueError(f"ridge is {ridge}, and the penalty has to be positive")
     units = states.shape[1]
-    gram = states.T @ states + ridge * torch.eye(units, dtype=DTYPE)
-    return torch.linalg.solve(gram, states.T @ targets.to(DTYPE))
+    identity = torch.eye(units, dtype=DTYPE, device=states.device)
+    gram = states.T @ states + ridge * identity
+    return torch.linalg.solve(
+        gram, states.T @ targets.to(device=states.device, dtype=DTYPE)
+    )
 
 
 def apply_readout(*, states: torch.Tensor, readout: torch.Tensor) -> torch.Tensor:
@@ -110,6 +123,6 @@ def apply_readout(*, states: torch.Tensor, readout: torch.Tensor) -> torch.Tenso
 
 def normalised_error(*, predicted: torch.Tensor, targets: torch.Tensor) -> float:
     """The root mean square error divided by the standard deviation of the targets."""
-    targets = targets.to(DTYPE)
+    targets = targets.to(device=predicted.device, dtype=DTYPE)
     error = ((predicted - targets) ** 2).mean().sqrt()
     return float(error / targets.std())

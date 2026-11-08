@@ -25,14 +25,14 @@ packages = ["src/reservoir"]
 # Upstream PyNCD ships no packaging metadata. This directory holds the metadata alone,
 # as lock-resolution plumbing; the flake combines it with the pinned upstream source.
 pyncd = { path = "third_party/pyncd" }
-torch = { index = "pytorch-cpu" }
+torch = { index = "pytorch-cu132" }
 
 [tool.uv]
 no-build-package = ["torch"]
 
 [[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
+name = "pytorch-cu132"
+url = "https://download.pytorch.org/whl/cu132"
 explicit = true
 
 [tool.ruff]

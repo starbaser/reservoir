@@ -74,5 +74,6 @@ receive document-specific checks rather than application suites.
   domain, codomain, listing and parameters.
 - The eigenpy template's `noxfile.py` is left out. An isolated nox session installs the package
   through uv, which cannot obtain PyNCD without the flake.
-- Torch comes from the CPU wheel index. Switch the index in `pyproject.toml` if a GPU build is
-  wanted.
+- Torch is the CUDA 13.2 wheel from the `pytorch-cu132` index, and `flake.nix` gives every CUDA
+  wheel the NixOS driver runpath, so `libcuda.so.1` comes from the host driver under
+  `/run/opengl-driver`. The tests run the reference on the CPU and on every CUDA device present.

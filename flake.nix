@@ -83,13 +83,70 @@
         let
           pkgs = nixpkgs.legacyPackages.${system};
           python = pkgs.python314;
-          pyprojectOverrides = final: prev: {
-            pyncd = prev.pyncd.overrideAttrs (old: {
-              src = pyncdSource pkgs;
-              nativeBuildInputs = (old.nativeBuildInputs or [ ])
-                ++ final.resolveBuildSystem { hatchling = [ ]; };
-            });
-          };
+          # The CUDA wheels of Torch 2.15 (cu132). libcuda.so.1 comes from the host
+          # driver rather than a Nix closure, so every CUDA library gets the NixOS
+          # driver runpath and keeps the wheel's own $ORIGIN runpaths. The wheels find
+          # one another through $ORIGIN in a flat site-packages, and uv2nix builds each
+          # wheel on its own, so autoPatchelf is taught every sibling library directory.
+          nvidiaPackages = [
+            "nvidia-cublas"
+            "nvidia-cuda-cupti"
+            "nvidia-cuda-nvrtc"
+            "nvidia-cuda-runtime"
+            "nvidia-cudnn-cu13"
+            "nvidia-cufft"
+            "nvidia-cufile"
+            "nvidia-cusolver"
+            "nvidia-cusparse"
+            "nvidia-cusparselt-cu13"
+            "nvidia-nccl-cu13"
+            "nvidia-nvjitlink"
+            "nvidia-nvshmem-cu13"
+            "nvidia-nvtx"
+          ];
+          pyprojectOverrides = final: prev:
+            let
+              searchPathsFor = names: ''
+                for dep in ${lib.concatMapStringsSep " " (name: final.${name}) names}; do
+                  while IFS= read -r libdir; do
+                    addAutoPatchelfSearchPath "$libdir"
+                  done < <(find "$dep/${python.sitePackages}" -type d -name lib)
+                done
+              '';
+              withDriverRunpath = name: extra:
+                prev.${name}.overrideAttrs (old: extra old // {
+                  nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.autoAddDriverRunpath ];
+                  autoPatchelfFlags = (old.autoPatchelfFlags or [ ]) ++ [ "--preserve-origin" ];
+                });
+            in
+            lib.genAttrs nvidiaPackages (name: withDriverRunpath name (_: { }))
+            // {
+              pyncd = prev.pyncd.overrideAttrs (old: {
+                src = pyncdSource pkgs;
+                nativeBuildInputs = (old.nativeBuildInputs or [ ])
+                  ++ final.resolveBuildSystem { hatchling = [ ]; };
+              });
+              nvidia-cusolver = withDriverRunpath "nvidia-cusolver" (old: {
+                preFixup = (old.preFixup or "")
+                  + searchPathsFor [ "nvidia-cublas" "nvidia-cusparse" "nvidia-nvjitlink" ];
+              });
+              nvidia-cusparse = withDriverRunpath "nvidia-cusparse" (old: {
+                preFixup = (old.preFixup or "") + searchPathsFor [ "nvidia-nvjitlink" ];
+              });
+              nvidia-cufile = withDriverRunpath "nvidia-cufile" (old: {
+                buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.rdma-core ];
+              });
+              nvidia-nvshmem-cu13 = withDriverRunpath "nvidia-nvshmem-cu13" (old: {
+                buildInputs = (old.buildInputs or [ ]) ++ [
+                  pkgs.rdma-core pkgs.libfabric pkgs.openmpi pkgs.pmix pkgs.ucx
+                ];
+              });
+              torch = withDriverRunpath "torch" (old: {
+                preFixup = (old.preFixup or "") + searchPathsFor nvidiaPackages;
+                autoPatchelfIgnoreMissingDeps = (old.autoPatchelfIgnoreMissingDeps or [ ])
+                  ++ [ "libcuda.so.1" ];
+              });
+            };
           pythonSet =
             (pkgs.callPackage pyproject-nix.build.packages { inherit python; })
             .overrideScope (lib.composeManyExtensions [
