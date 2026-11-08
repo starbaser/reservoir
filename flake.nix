@@ -1,0 +1,155 @@
+{
+  description = "reservoir — reservoir computing written as neural circuit diagrams with PyNCD";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    pyproject-nix = {
+      url = "github:pyproject-nix/pyproject.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    uv2nix = {
+      url = "github:pyproject-nix/uv2nix";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    pyproject-build-systems = {
+      url = "github:pyproject-nix/build-system-pkgs";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.uv2nix.follows = "uv2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # The private read-only mirrors of PyNCD and tsncd, a matched pair. flake.lock
+    # records the exact revisions.
+    pyncd = {
+      url = "git+ssh://git@git.eigenmage.com/eigenmage/pyncd.git?ref=main";
+      flake = false;
+    };
+    tsncd = {
+      url = "git+ssh://git@git.eigenmage.com/eigenmage/tsncd.git?ref=main";
+      flake = false;
+    };
+  };
+
+  outputs = { self, nixpkgs, uv2nix, pyproject-nix, pyproject-build-systems, pyncd, tsncd, ... }:
+    let
+      inherit (nixpkgs) lib;
+      forAllSystems = lib.genAttrs [ "x86_64-linux" "aarch64-linux" ];
+
+      workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
+      overlay = workspace.mkPyprojectOverlay { sourcePreference = "wheel"; };
+      editableOverlay = workspace.mkEditablePyprojectOverlay {
+        root = "$REPO_ROOT";
+        members = [ "reservoir" ];
+      };
+
+      # Upstream PyNCD ships no packaging metadata. The pinned source is combined with
+      # the shim uv resolves the lock against, and the wheel is built from the result.
+      pyncdSource = pkgs: pkgs.runCommand "pyncd-source" { } ''
+        mkdir -p "$out"
+        cp -R --no-preserve=mode ${pyncd}/. "$out/"
+        cp ${./third_party/pyncd/pyproject.toml} "$out/pyproject.toml"
+      '';
+
+      # tsncd's production bundle. PyNCD's page writer and headless capture read it
+      # through TSNCD_DIST.
+      mkTsncdBundle = pkgs:
+        let manifest = builtins.fromJSON (builtins.readFile "${tsncd}/package.json");
+        in pkgs.buildNpmPackage {
+          pname = manifest.name;
+          inherit (manifest) version;
+          src = tsncd;
+          nodejs = pkgs.nodejs_24;
+          npmDepsHash = "sha256-bH3DY2wG6U1S4T4E2Ok+UYflahRUNQnzGw15A+7+O0E=";
+          installPhase = ''
+            runHook preInstall
+            mkdir -p "$out"
+            cp -r dist/. "$out/"
+            runHook postInstall
+          '';
+          doInstallCheck = true;
+          installCheckPhase = ''
+            runHook preInstallCheck
+            test -s "$out/index.html"
+            test -n "$(find "$out/assets" -name 'main.*.js' -print -quit)"
+            runHook postInstallCheck
+          '';
+        };
+
+      perSystem = system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          python = pkgs.python314;
+          pyprojectOverrides = final: prev: {
+            pyncd = prev.pyncd.overrideAttrs (old: {
+              src = pyncdSource pkgs;
+              nativeBuildInputs = (old.nativeBuildInputs or [ ])
+                ++ final.resolveBuildSystem { hatchling = [ ]; };
+            });
+          };
+          pythonSet =
+            (pkgs.callPackage pyproject-nix.build.packages { inherit python; })
+            .overrideScope (lib.composeManyExtensions [
+              pyproject-build-systems.overlays.default
+              overlay
+              pyprojectOverrides
+            ]);
+          # The dev shell runs this virtual environment: the workspace package editable,
+          # every dependency built from the flake's locked inputs. A uv-synced venv would
+          # install the empty packaging shim in place of PyNCD.
+          editablePythonSet = pythonSet.overrideScope (lib.composeManyExtensions [
+            editableOverlay
+            (final: prev: {
+              reservoir = prev.reservoir.overrideAttrs (old: {
+                src = lib.fileset.toSource {
+                  root = old.src;
+                  fileset = lib.fileset.unions [
+                    (old.src + "/pyproject.toml")
+                    (old.src + "/src/reservoir/__init__.py")
+                  ];
+                };
+                nativeBuildInputs = (old.nativeBuildInputs or [ ])
+                  ++ final.resolveBuildSystem { editables = [ ]; };
+              });
+            })
+          ]);
+        in {
+          inherit pkgs pythonSet;
+          tsncdBundle = mkTsncdBundle pkgs;
+          devEnv = editablePythonSet.mkVirtualEnv "reservoir-dev-env" workspace.deps.all;
+        };
+    in {
+      devShells = forAllSystems (system:
+        let s = perSystem system;
+        in {
+          default = s.pkgs.mkShell {
+            packages = [ s.devEnv s.pkgs.uv s.pkgs.ruff s.pkgs.just ];
+            env = {
+              UV_NO_SYNC = "1";
+              UV_PROJECT_ENVIRONMENT = "${s.devEnv}";
+              UV_PYTHON = "${s.devEnv}/bin/python";
+              UV_PYTHON_DOWNLOADS = "never";
+              TSNCD_DIST = "${s.tsncdBundle}";
+            };
+            shellHook = ''
+              unset PYTHONPATH
+              export REPO_ROOT="$(git rev-parse --show-toplevel)"
+            '';
+          };
+        }
+      );
+
+      packages = forAllSystems (system:
+        let s = perSystem system;
+        in {
+          default = s.pythonSet.mkVirtualEnv "reservoir-env" workspace.deps.default;
+          tsncd = s.tsncdBundle;
+        }
+      );
+
+      checks = forAllSystems (system: { tsncd = (perSystem system).tsncdBundle; });
+    };
+}

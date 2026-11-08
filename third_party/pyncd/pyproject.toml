@@ -1,0 +1,31 @@
+# Packaging metadata for the pinned PyNCD source, which ships none of its own. uv reads
+# this directory to resolve the lock. The flake copies this file onto the pinned
+# checkout and builds the wheel from the result, so nothing here is installed on its own.
+[project]
+name = "pyncd"
+version = "0.1.0"
+description = "Algebraic neural circuit diagrams and PyTorch compilation"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.optional-dependencies]
+torch = ["torch>=2.5", "einops>=0.8.1", "numpy>=2"]
+# notebooks/display imports IPython through ipykernel and pandas, which upstream
+# imports and does not list.
+diagrams = ["websockets>=15", "ipykernel>=6.29.5", "pandas>=2"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "advanced_axis_dynamics", "agent_display", "algebra", "caching",
+  "construction_helpers", "data_structure", "data_transfer", "deepseek", "display",
+  "graphs", "para", "performance_modeling", "quantization", "solver",
+  "term_utilities", "torch_compile", "utilities", "websocket_transfer",
+]
+
+# The notebook drawing helper, which every page and listing is written through.
+[tool.hatch.build.targets.wheel.force-include]
+"notebooks/display" = "notebooks/display"

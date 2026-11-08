@@ -1,0 +1,13 @@
+.venv/
+.direnv/
+.env
+.nox/
+.tox/
+__pycache__/
+*.pyc
+result
+result-*
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+outputs/
