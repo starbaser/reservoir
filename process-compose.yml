@@ -8,11 +8,14 @@ version: "0.5"
 # site   tsncd's bundle served at the root, because the page loads its assets from "/",
 #        with the pages `just render` writes under /diagrams/. SITE_PORT selects the
 #        port, default 8780. Open http://127.0.0.1:8780/ for the live page.
+#
+# Each process writes its log under outputs/logs/, which `just logs` reads.
 processes:
   relay:
     command: >-
       python -c 'import asyncio, websocket_transfer.websockets_transfer as wst;
       asyncio.run(wst.DataServer().main())'
+    log_location: outputs/logs/relay.log
     availability:
       restart: on_failure
       backoff_seconds: 2
@@ -25,6 +28,7 @@ processes:
       for entry in "$TSNCD_DIST"/*; do ln -s "$entry" "$site/"; done;
       ln -s "$PWD/outputs/diagrams" "$site/diagrams";
       exec python -m http.server "''${SITE_PORT:-8780}" --bind 127.0.0.1 --directory "$site"'
+    log_location: outputs/logs/site.log
     availability:
       restart: on_failure
       backoff_seconds: 2
