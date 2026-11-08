@@ -143,14 +143,15 @@ npm ci && npm run build            # writes dist/
 export TSNCD_DIST="$PWD/dist"
 ```
 
-The reservoir repository's `tools/setup_tsncd.py` does this at the pinned commit and
-writes `TSNCD_DIST` to `.env`. `websocket_transfer.headless.find_dist` resolves an
-explicit `dist=` argument, then `$TSNCD_DIST`, then a `tsncd/dist` or
-`tsncd-public/dist` sibling of the pyncd package directory. An installed pyncd has no
-such sibling, so every consumer sets `TSNCD_DIST`. Rebuild the bundle after any tsncd
-change; headless captures and standalone pages render whatever was last built. The
-bundle dials the relay port compiled into it at build time, `PORT` with the
-default 8765.
+The reservoir repository instead pins tsncd in its `package.json` as a git dependency,
+installs it with `npm ci`, and builds the bundle under `node_modules/tsncd/dist` with a
+`webpack.config.js` that applies tsncd's own configuration without its `node_modules/`
+exclusion. `websocket_transfer.headless.find_dist` resolves an explicit `dist=`
+argument, then `$TSNCD_DIST`, then a `tsncd/dist` or `tsncd-public/dist` sibling of the
+pyncd package directory. An installed pyncd has no such sibling, so every consumer sets
+`TSNCD_DIST`. Rebuild the bundle after any tsncd change; headless captures and
+standalone pages render whatever was last built. The bundle dials the relay port
+compiled into it at build time, `PORT` with the default 8765.
 
 ## Running the live page viewer
 
@@ -161,13 +162,13 @@ as two long-running processes (process-compose shown; any supervisor works):
 processes:
   relay:
     # tsncd's relay between a sending Python process and every open page, on
-    # localhost:8765. It holds the last model, so a refreshed page redraws it.
-    command: npm run server
-    working_dir: third_party/tsncd
+    # localhost:8765. It holds the last model, so a refreshed page redraws it. Node
+    # strips no types under node_modules/, so tsx runs the file.
+    command: npx tsx node_modules/tsncd/src/run_server.ts
   page:
-    # tsncd's page on http://127.0.0.1:3000/, which connects to the relay.
-    command: npm run dev -- --no-open
-    working_dir: third_party/tsncd
+    # tsncd's page on http://127.0.0.1:3000/, which connects to the relay, served by
+    # webpack's dev server with tsncd's configuration.
+    command: npx webpack serve --mode development --no-open --host 127.0.0.1
 ```
 
 `websocket_transfer.send_morphism.send_morphism(term)` then redraws every open page, and

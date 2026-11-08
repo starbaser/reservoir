@@ -1,21 +1,20 @@
 version: "0.5"
 
 # The two long-running processes of the live page viewer, started with `just up`. Both
-# are tsncd's own, run from the checkout `tools/setup_tsncd.py` places under
-# third_party/tsncd/.
+# are tsncd's own, run from the tsncd that `npm ci` installs under node_modules/ through
+# the scripts of package.json.
 #
-# relay  `npm run server`, tsncd's websocket relay on localhost:8765. A Python process
-#        sends a model to it and every open page redraws. It holds the last model, so a
-#        page refresh redraws the current diagram without Python running again.
-# page   `npm run dev`, tsncd's page on http://127.0.0.1:3000/. The page connects to the
-#        relay and draws whatever it holds. TSNCD_PAGE_PORT, in the environment or in
-#        `.env`, moves the page to another port when 3000 is taken.
+# relay  tsncd's websocket relay on localhost:8765. A Python process sends a model to it
+#        and every open page redraws. It holds the last model, so a page refresh redraws
+#        the current diagram without Python running again.
+# page   tsncd's page, served by its dev server on http://127.0.0.1:3000/. The page
+#        connects to the relay and draws whatever it holds. TSNCD_PAGE_PORT, in the
+#        environment or in `.env`, moves the page to another port when 3000 is taken.
 #
 # Each process writes its log under outputs/logs/, which `just logs` reads.
 processes:
   relay:
-    command: npm run server
-    working_dir: third_party/tsncd
+    command: npm run tsncd:relay
     log_location: outputs/logs/relay.log
     availability:
       restart: on_failure
@@ -23,8 +22,7 @@ processes:
       max_restarts: 5
 
   page:
-    command: npm run dev -- --no-open --host 127.0.0.1 --port "$${TSNCD_PAGE_PORT:-3000}"
-    working_dir: third_party/tsncd
+    command: npm run tsncd:page -- --port "$${TSNCD_PAGE_PORT:-3000}"
     log_location: outputs/logs/page.log
     availability:
       restart: on_failure

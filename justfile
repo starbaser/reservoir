@@ -17,11 +17,10 @@ quality:
     uv run ruff check --fix .
     uv run ty check src/
 
-# tsncd at the pinned revision under third_party/tsncd/: cloned, its npm dependencies
-# installed and its bundle built. `just up` runs tsncd's relay and page from there.
-# Needs git, node 24 and npm.
-setup-tsncd:
-    python3 tools/setup_tsncd.py
+# tsncd's bundle, built under node_modules/tsncd/dist from the tsncd package.json pins.
+# PyNCD's page writer and headless figures read it. Needs `npm ci` first.
+build-tsncd:
+    npm run tsncd:build
 
 # Build the network, print its listing, check the term against the Torch reference and
 # fit the readout on a delay task. `--device cpu` runs it without a GPU.

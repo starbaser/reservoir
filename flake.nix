@@ -21,17 +21,12 @@
       inputs.uv2nix.follows = "uv2nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    # tsncd, the renderer, whose bundle the flake builds. PyNCD is a git dependency
-    # in uv.lock, pinned to one commit there, and uv2nix fetches it from that lock.
-    # The two are a matched pair, so move the pins together.
-    tsncd = {
-      url = "github:starbaser/tsncd";
-      flake = false;
-    };
   };
 
-  outputs = { self, nixpkgs, uv2nix, pyproject-nix, pyproject-build-systems, tsncd, ... }:
+  # PyNCD is a git dependency in uv.lock and tsncd one in package-lock.json, each
+  # pinned to one commit there, and the flake builds both from those locks. The two
+  # are a matched pair, so move the pins together.
+  outputs = { self, nixpkgs, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
     let
       inherit (nixpkgs) lib;
       forAllSystems = lib.genAttrs [ "x86_64-linux" "aarch64-linux" ];
@@ -43,20 +38,26 @@
         members = [ "reservoir" ];
       };
 
-      # tsncd's production bundle. PyNCD's page writer and headless capture read it
+      # tsncd's production bundle, built by `npm run tsncd:build` from the tsncd that
+      # package-lock.json pins. PyNCD's page writer and headless capture read it
       # through TSNCD_DIST.
       mkTsncdBundle = pkgs:
-        let manifest = builtins.fromJSON (builtins.readFile "${tsncd}/package.json");
-        in pkgs.buildNpmPackage {
-          pname = manifest.name;
-          inherit (manifest) version;
-          src = tsncd;
+        pkgs.buildNpmPackage {
+          pname = "reservoir-tsncd-bundle";
+          version = "0.1.0";
+          src = lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [ ./package.json ./package-lock.json ./webpack.config.js ];
+          };
           nodejs = pkgs.nodejs_24;
-          npmDepsHash = "sha256-bH3DY2wG6U1S4T4E2Ok+UYflahRUNQnzGw15A+7+O0E=";
+          npmDepsHash = "sha256-lyOKrbJCWudie0tJAkhODDQJNtgTCoy/94cupWAjMKo=";
+          # npm packs a git dependency into its cache while installing it.
+          makeCacheWritable = true;
+          npmBuildScript = "tsncd:build";
           installPhase = ''
             runHook preInstall
             mkdir -p "$out"
-            cp -r dist/. "$out/"
+            cp -r node_modules/tsncd/dist/. "$out/"
             runHook postInstall
           '';
           doInstallCheck = true;
@@ -177,7 +178,7 @@
               s.pkgs.uv
               s.pkgs.just
               s.pkgs.process-compose
-              # tools/setup_tsncd.py and the viewer's `npm run server` and `npm run dev`.
+              # `npm ci` for tsncd and the viewer's `npm run tsncd:relay` and `tsncd:page`.
               s.pkgs.nodejs_24
               s.pkgs.playwright-driver.browsers
             ];

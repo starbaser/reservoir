@@ -11,5 +11,4 @@ result-*
 .ruff_cache/
 .pytest_cache/
 outputs/
-# The tsncd checkout tools/setup_tsncd.py places, which `just up` runs the viewer from.
-third_party/
+node_modules/

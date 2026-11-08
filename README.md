@@ -44,7 +44,8 @@ here, so the picture and the computation cannot drift apart.
 | `src/reservoir/run_echo_state_network.py` | The end-to-end run `just run` performs.                                               |
 | `src/reservoir/render.py`                 | Draws the diagram as a page, as PNG and PDF, and through the live viewer.             |
 | `src/reservoir/check_viewer.py`           | Drives the live viewer once in a headless browser and checks what it drew.            |
-| `tools/setup_tsncd.py`                    | Clones tsncd at its pinned commit under `third_party/tsncd/` and builds it.           |
+| `package.json`                            | tsncd, pinned to one commit, and the tools its bundle and its dev server need.        |
+| `webpack.config.js`                       | tsncd's own webpack configuration, applied to tsncd installed under `node_modules/`.  |
 | `tests/`                                  | The checks, run with `just test`.                                                     |
 | `docs/echo-state-network.md`              | Each line of the equations beside its spelling in PyNCD, the listing, and the limits. |
 | `skills/using-ncd/`                       | A guide to PyNCD and tsncd as a whole, written for an agent and readable by a person. |
@@ -64,13 +65,13 @@ here, so the picture and the computation cannot drift apart.
 ```bash
 git clone https://github.com/starbaser/reservoir.git && cd reservoir
 nix develop                  # or: direnv allow
-just setup-tsncd             # tsncd at its pinned commit, under third_party/tsncd/
+npm ci                       # tsncd at its pinned commit, under node_modules/
 ```
 
 The shell's `python` is a Nix-built virtual environment with this package editable,
 PyNCD built from the commit `uv.lock` pins, a tsncd bundle built from the commit
-`flake.lock` pins and exported as `TSNCD_DIST`, and Playwright's Chromium from nixpkgs.
-`just setup-tsncd` adds the tsncd checkout that the live viewer runs from.
+`package-lock.json` pins and exported as `TSNCD_DIST`, and Playwright's Chromium from
+nixpkgs. `npm ci` installs tsncd itself, which the live viewer runs from.
 
 ## Installing without Nix
 
@@ -78,14 +79,15 @@ PyNCD built from the commit `uv.lock` pins, a tsncd bundle built from the commit
 git clone https://github.com/starbaser/reservoir.git && cd reservoir
 uv sync                              # Python 3.14, Torch, PyNCD from its repository
 uv run playwright install chromium   # the browser for the figures and the checks
-just setup-tsncd                     # tsncd at its pinned commit, under third_party/tsncd/
+npm ci                               # tsncd at its pinned commit, under node_modules/
+npm run tsncd:build                  # tsncd's bundle, for the page and the figures
 ```
 
 `uv` installs Python 3.14 if the machine has none. If Chromium refuses to start for want
 of system libraries, `uv run playwright install-deps chromium` installs them.
-`just setup-tsncd` clones tsncd, runs `npm ci` and `npm run build`, and writes
-`TSNCD_DIST=third_party/tsncd/dist` into `.env`. Every `just` recipe runs through
-`uv run`.
+`package.json` pins tsncd to one commit, and `npm ci` installs it under
+`node_modules/tsncd/` like any other package. PyNCD reads the bundle from there when
+`TSNCD_DIST` is unset. Every `just` recipe runs through `uv run`.
 
 ## Running the network
 
@@ -180,10 +182,11 @@ just down
 ```
 
 Open `http://127.0.0.1:3000/` in a browser after `just up`. The two processes are
-tsncd's own `npm run server` and `npm run dev`, run from `third_party/tsncd/` by
-`process-compose.yml`. The page takes a few seconds to compile the first time. If port
-3000 is taken, put `TSNCD_PAGE_PORT=3100` in `.env`. The relay's port, 8765, is compiled
-into the page, so one relay at a time holds it.
+tsncd's own relay server and dev server, run from `node_modules/tsncd/` through the
+`tsncd:relay` and `tsncd:page` scripts of `package.json` by `process-compose.yml`. The
+page takes a few seconds to compile the first time. If port 3000 is taken, put
+`TSNCD_PAGE_PORT=3100` in `.env`. The relay's port, 8765, is compiled into the page, so
+one relay at a time holds it.
 
 ## Checks
 
