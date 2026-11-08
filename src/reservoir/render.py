@@ -36,7 +36,7 @@ import websocket_transfer.capture as capture
 import websocket_transfer.websockets_transfer as wst
 from notebooks.display import notebook_diagrams
 
-from reservoir import echo_state_network
+from reservoir import echo_state_network, tsncd_bundle
 
 
 class Delivery(enum.Enum):
@@ -214,6 +214,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         metavar="|".join(delivery.value for delivery in Delivery),
     )
     args = parser.parse_args(argv)
+    tsncd_bundle.name_vendored_bundle_when_unset()
     for figure in asyncio.run(draw(output_dir=args.output_dir, delivery=args.delivery)):
         if figure.output is None:
             print(f"sent {figure.slug} to the open page")

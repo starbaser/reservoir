@@ -22,9 +22,8 @@ build-backend = "hatchling.build"
 packages = ["src/reservoir"]
 
 [tool.uv.sources]
-# Upstream PyNCD ships no packaging metadata. This directory holds the metadata alone,
-# as lock-resolution plumbing; the flake combines it with the pinned upstream source.
-pyncd = { path = "third_party/pyncd" }
+# PyNCD, pinned to one commit of the repository. The flake reads the same lock.
+pyncd = { git = "https://github.com/starbaser/pyncd.git", rev = "d056b4755fad127e48063739126fc2f19192650b" }
 torch = { index = "pytorch-cu132" }
 
 [tool.uv]

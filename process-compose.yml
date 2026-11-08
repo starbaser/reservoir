@@ -9,7 +9,9 @@ version: "0.5"
 #        with the pages `just render` writes under /diagrams/. SITE_PORT selects the
 #        port, default 8780. Open http://127.0.0.1:8780/ for the live page.
 #
-# Each process writes its log under outputs/logs/, which `just logs` reads.
+# TSNCD_DIST names the built tsncd bundle. The Nix shell exports it, and without Nix
+# `tools/build_tsncd_bundle.py` writes it to `.env`, which process-compose loads. Each
+# process writes its log under outputs/logs/, which `just logs` reads.
 processes:
   relay:
     command: >-
@@ -27,7 +29,7 @@ processes:
       site="$PWD/outputs/site"; rm -rf "$site"; mkdir -p "$site" "$PWD/outputs/diagrams";
       for entry in "$TSNCD_DIST"/*; do ln -s "$entry" "$site/"; done;
       ln -s "$PWD/outputs/diagrams" "$site/diagrams";
-      exec python -m http.server "''${SITE_PORT:-8780}" --bind 127.0.0.1 --directory "$site"'
+      exec python -m http.server "$${SITE_PORT:-8780}" --bind 127.0.0.1 --directory "$site"'
     log_location: outputs/logs/site.log
     availability:
       restart: on_failure

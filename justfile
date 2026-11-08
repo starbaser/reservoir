@@ -15,6 +15,11 @@ quality:
     uv run ruff check --fix .
     uv run ty check src/
 
+# The tsncd bundle at the pinned revision under third_party/tsncd/dist, for an
+# installation without Nix. Needs git, node 24 and npm.
+build-tsncd-bundle:
+    python3 tools/build_tsncd_bundle.py
+
 # One standalone HTML page and one SSA listing per model, under outputs/diagrams/.
 # The page opens from the disk with no server and no network.
 render:

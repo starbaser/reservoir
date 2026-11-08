@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 from playwright.async_api import async_playwright
 
-from reservoir import render
+from reservoir import render, tsncd_bundle
 
 PNG_MAGIC = b"\x89PNG"
 CONNECTED_MESSAGE = "Connected"
@@ -109,6 +109,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=pathlib.Path, required=True)
     args = parser.parse_args(argv)
+    tsncd_bundle.name_vendored_bundle_when_unset()
     result = asyncio.run(check(output_dir=args.output_dir))
     for capture in result.captures:
         print(f"captured {capture}")

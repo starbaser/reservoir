@@ -16,22 +16,6 @@
         "type": "github"
       }
     },
-    "pyncd": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1793948635,
-        "narHash": "sha256-+7jjL14kRVivB/hNmG0U7dq8yPMg2vGj0ormAqT4yFo=",
-        "owner": "starbaser",
-        "repo": "pyncd",
-        "rev": "31956bf3c4ffe76df128022e5e33481ad5f6fddb",
-        "type": "github"
-      },
-      "original": {
-        "owner": "starbaser",
-        "repo": "pyncd",
-        "type": "github"
-      }
-    },
     "pyproject-build-systems": {
       "inputs": {
         "nixpkgs": [
@@ -81,7 +65,6 @@
     "root": {
       "inputs": {
         "nixpkgs": "nixpkgs",
-        "pyncd": "pyncd",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
         "tsncd": "tsncd",

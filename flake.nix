@@ -22,19 +22,16 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # The public read-only mirrors of PyNCD and tsncd, a matched pair: upstream
-    # mit-zardini-lab plus the reviewed fixes. flake.lock records the exact revisions.
-    pyncd = {
-      url = "github:starbaser/pyncd";
-      flake = false;
-    };
+    # tsncd, the renderer, whose bundle the flake builds. PyNCD is a git dependency
+    # in uv.lock, pinned to one commit there, and uv2nix fetches it from that lock.
+    # The two are a matched pair, so move the pins together.
     tsncd = {
       url = "github:starbaser/tsncd";
       flake = false;
     };
   };
 
-  outputs = { self, nixpkgs, uv2nix, pyproject-nix, pyproject-build-systems, pyncd, tsncd, ... }:
+  outputs = { self, nixpkgs, uv2nix, pyproject-nix, pyproject-build-systems, tsncd, ... }:
     let
       inherit (nixpkgs) lib;
       forAllSystems = lib.genAttrs [ "x86_64-linux" "aarch64-linux" ];
@@ -45,14 +42,6 @@
         root = "$REPO_ROOT";
         members = [ "reservoir" ];
       };
-
-      # Upstream PyNCD ships no packaging metadata. The pinned source is combined with
-      # the shim uv resolves the lock against, and the wheel is built from the result.
-      pyncdSource = pkgs: pkgs.runCommand "pyncd-source" { } ''
-        mkdir -p "$out"
-        cp -R --no-preserve=mode ${pyncd}/. "$out/"
-        cp ${./third_party/pyncd/pyproject.toml} "$out/pyproject.toml"
-      '';
 
       # tsncd's production bundle. PyNCD's page writer and headless capture read it
       # through TSNCD_DIST.
@@ -121,8 +110,8 @@
             in
             lib.genAttrs nvidiaPackages (name: withDriverRunpath name (_: { }))
             // {
+              # A git dependency is built from source, so its build system is named here.
               pyncd = prev.pyncd.overrideAttrs (old: {
-                src = pyncdSource pkgs;
                 nativeBuildInputs = (old.nativeBuildInputs or [ ])
                   ++ final.resolveBuildSystem { hatchling = [ ]; };
               });
