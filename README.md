@@ -42,7 +42,9 @@ uv run playwright install chromium     # the browser for headless figures and th
 python3 tools/build_tsncd_bundle.py    # tsncd at its pinned commit, built with npm
 ```
 
-`uv` installs Python 3.14 if the machine has none. The last step clones tsncd under
+`uv` installs Python 3.14 if the machine has none. If Chromium refuses to start for want
+of system libraries, `uv run playwright install-deps chromium` installs them. The last
+step clones tsncd under
 `third_party/tsncd/`, builds its bundle, and writes `TSNCD_DIST=third_party/tsncd/dist`
 into `.env`, which `process-compose` reads. The commands below run through `uv run`,
 and the entry points of this package find that bundle on their own when `TSNCD_DIST` is

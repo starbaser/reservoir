@@ -175,7 +175,6 @@
             packages = [
               s.devEnv
               s.pkgs.uv
-              s.pkgs.ruff
               s.pkgs.just
               s.pkgs.process-compose
               s.pkgs.playwright-driver.browsers

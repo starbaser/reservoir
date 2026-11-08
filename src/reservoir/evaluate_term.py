@@ -5,9 +5,9 @@ identity, compiles a repeated block only when its repetition is an integer and n
 binds a counter, and has no rule for a tape seed, an `ops.ConstantOp`, an
 `ops.FixedArray` or an `aops.CovariantView`. This module evaluates exactly those
 operators and the ones beside them, in `torch.float64`, following the evaluator PyNCD's
-Mamba notebook keeps for its selective scan, `notebooks/caching/mamba/evaluate_numerically.py`
-in the PyNCD repository. It exists so that the term and the Torch
-reference can be compared on the same numbers.
+Mamba notebook keeps for its selective scan,
+`notebooks/caching/mamba/evaluate_numerically.py` in the PyNCD repository. It exists so
+that the term and the Torch reference can be compared on the same numbers.
 
 A `cat.Broadcasted` is evaluated at every index of its degree at once. Each operand is
 read through its reindexing at the positions the rows give for every index of the

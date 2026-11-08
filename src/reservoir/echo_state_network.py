@@ -11,7 +11,8 @@ where `W_in` and `W` are fixed random arrays and `W_out` is the only learned map
 The recurrence reads the state of the step before, so it cannot be an operator
 broadcast over the steps. It is a `cat.Block` repeated once per step whose counter
 `i_t` is the name its tag carries, following the selective scan of PyNCD's Mamba
-notebook, `notebooks/caching/mamba/selective_scan.py` in the PyNCD repository. The state `h` is a loop variable: a `Para.StreamGrab` of its slot reads the
+notebook, `notebooks/caching/mamba/selective_scan.py` in the PyNCD repository. The
+state `h` is a loop variable: a `Para.StreamGrab` of its slot reads the
 state the iteration starts from and a `Para.StreamDrop` writes the state the next
 iteration starts from. The states `H` over every step are a second loop variable, and
 each iteration writes its state at position `i_t` through a covariant view and adds the
