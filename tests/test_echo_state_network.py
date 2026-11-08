@@ -15,13 +15,13 @@ import term_utilities.term_utilities as term_utilities
 
 from reservoir import echo_state_network
 from reservoir.axes import (
-    DRIVE,
     INPUT_SEQUENCE,
     READOUT,
     SMALL_SIZES,
     STATE,
     STATES,
     STEP_COUNTER,
+    inputs,
     outputs,
     steps,
     units,
@@ -40,13 +40,13 @@ def test_the_network_maps_the_input_sequence_to_the_readout() -> None:
     assert tuple(network.cod()) == (READOUT,)
 
 
-def test_the_reservoir_reads_the_drive_and_returns_the_states() -> None:
+def test_the_reservoir_reads_the_sequence_and_returns_the_states() -> None:
     reservoir = echo_state_network.reservoir_loop(leak=echo_state_network.LEAK)
-    assert tuple(reservoir.dom()) == (DRIVE,)
+    assert tuple(reservoir.dom()) == (INPUT_SEQUENCE,)
     assert tuple(reservoir.cod()) == (STATES,)
 
 
-def test_one_step_is_repeated_once_per_step_with_equal_domain_and_codomain() -> None:
+def test_the_loop_runs_once_per_step_from_the_sequence_to_the_states() -> None:
     network = echo_state_network.echo_state_network()
     loops = [
         block
@@ -56,7 +56,8 @@ def test_one_step_is_repeated_once_per_step_with_equal_domain_and_codomain() -> 
     assert len(loops) == 1
     (loop,) = loops
     assert loop.repetition == steps.local_size()
-    assert tuple(loop.dom()) == tuple(loop.cod()) == (STATES,)
+    assert tuple(loop.dom()) == (INPUT_SEQUENCE,)
+    assert tuple(loop.cod()) == (STATES,)
 
 
 def test_the_state_and_the_states_are_the_two_loop_variables() -> None:
@@ -83,7 +84,7 @@ def test_the_summary_reports_every_operator_of_the_update() -> None:
     assert "out   %1 : R[t, p]" in summary
     assert (
         "ops   3x AdditionOp, 3x Arithmetic, 2x ConstantOp, 1x CovariantView, "
-        "2x Einops, 2x FixedArray, 1x Linear, 1x View"
+        "3x Linear, 1x View"
     ) in summary
 
 
@@ -94,20 +95,24 @@ def test_the_listing_states_the_loop_and_its_tape() -> None:
     assert "= StreamGrab<H>() : R[t, n]" in listing
     assert "= StreamDrop<h>(" in listing
     assert "= StreamDrop<H>(" in listing
-    assert "= FixedArray<W^{in}>() : R[{m}, {n}]" in listing
-    assert "= FixedArray<W>() : R[{n}, {n}]" in listing
+    assert "= Linear<W^{in}>(%4[{m}]) : R[{n}]" in listing
+    assert "= Linear<W>(%5[{n}]) : R[{n}]" in listing
     assert "= Arithmetic<\\tanh>(" in listing
     assert ": R[t, {p}]" in listing
 
 
-def test_the_readout_is_the_only_learned_array() -> None:
+def test_the_three_matrices_are_the_parameter_arrays() -> None:
     network = echo_state_network.echo_state_network()
-    parameters = [
+    parameters = {
         (name.to_bodies(), tuple(array.shape()))
         for seed in term_utilities.type_search(cat.Broadcasted, network)
         for name, array in show_grabbed_parameters.parameter_arrays(seed)
-    ]
-    assert parameters == [(echo_state_network.READOUT_NAME, (units, outputs))]
+    }
+    assert parameters == {
+        (echo_state_network.INPUT_WEIGHTS_NAME, (inputs, units)),
+        (echo_state_network.RECURRENT_WEIGHTS_NAME, (units, units)),
+        (echo_state_network.READOUT_NAME, (units, outputs)),
+    }
 
 
 def test_binding_the_sizes_leaves_the_counter_and_a_symbolic_leak() -> None:

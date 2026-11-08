@@ -1,18 +1,12 @@
-"""A plain-Torch echo state network, the numerical reference for the morphism.
+"""The fixed random weights of the reservoir, and the fit of its readout.
 
-`torch_compile` has no rule for the tape seeds, the constant and the covariant write
-that the reservoir loop holds, so the morphism in `echo_state_network` is not compiled.
-This module runs the same equations in `torch.float64`: the reservoir loop, the
-ridge-regression fit of the readout, which is a closed form the algebra has no operator
-for, and the readout itself.
+`random_reservoir` draws `W_in` and `W` and scales `W` to a spectral radius. The
+network runs through `run_in_torch`, which calls the step PyNCD compiles. `fit_readout`
+solves the ridge regression for `W_out`, which is a closed form the algebra has no
+operator for, and `normalised_error` measures the fit.
 
-The index conventions follow the morphism. `W_in` is over `(inputs, units)` and
-`W` over `(units, units)`, so a drive is `u @ W_in` and the recurrent term is
-`h @ W`. `W_out` is over `(units, outputs)`, so the readout is `H @ W_out`.
-
-Every function computes on the device its tensors live on. `random_reservoir` places
-the weights, and the rest follow them, so one call with `device=torch.device("cuda")`
-runs the whole reference on a GPU.
+The index conventions follow the morphism. `W_in` is over `(inputs, units)` and `W`
+over `(units, units)`, and `W_out` is over `(units, outputs)`.
 """
 
 from __future__ import annotations
@@ -74,27 +68,6 @@ def random_reservoir(
     )
 
 
-def run_reservoir(
-    *, weights: ReservoirWeights, input_sequence: torch.Tensor
-) -> torch.Tensor:
-    """The state after every step of `input_sequence`, over `(steps, units)`, from the
-    zero state.
-
-    Args:
-        weights: The fixed weights and the leak rate, which name the device.
-        input_sequence: The inputs over `(steps, inputs)`, moved to that device.
-    """
-    device = weights.recurrent_weights.device
-    drives = input_sequence.to(device=device, dtype=DTYPE) @ weights.input_weights
-    state = torch.zeros(weights.recurrent_weights.shape[0], dtype=DTYPE, device=device)
-    states = []
-    for drive in drives:
-        activation = torch.tanh(drive + state @ weights.recurrent_weights)
-        state = (1 - weights.leak) * state + weights.leak * activation
-        states.append(state)
-    return torch.stack(states)
-
-
 def fit_readout(
     *, states: torch.Tensor, targets: torch.Tensor, ridge: float
 ) -> torch.Tensor:
@@ -114,11 +87,6 @@ def fit_readout(
     return torch.linalg.solve(
         gram, states.T @ targets.to(device=states.device, dtype=DTYPE)
     )
-
-
-def apply_readout(*, states: torch.Tensor, readout: torch.Tensor) -> torch.Tensor:
-    """`H W_out`, the readout at every step, over `(steps, outputs)`."""
-    return states @ readout
 
 
 def normalised_error(*, predicted: torch.Tensor, targets: torch.Tensor) -> float:

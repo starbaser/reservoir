@@ -30,8 +30,8 @@ STEP_COUNTER = nm.FreeNumeric.named(STEP_COUNTER_NAME)
 """The counter of the loop over the steps, naming the step an iteration computes."""
 
 INPUT_SEQUENCE = cat.Array(R, (steps, inputs))
-DRIVE = cat.Array(R, (steps, units))
-"""`W_in u_t` at every step, computed before the loop."""
+INPUT = cat.Array(R, (inputs,))
+"""One input vector, which one step of the loop reads."""
 STATE = cat.Array(R, (units,))
 STATES = cat.Array(R, (steps, units))
 """The state after every step, which the readout reads."""

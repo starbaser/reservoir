@@ -52,13 +52,13 @@ async def exercise(page_path: pathlib.Path) -> dict[str, object]:
         await page.get_by_role("button", name="Arrows and boxes").click()
         await page.wait_for_function(
             "() => [...document.querySelectorAll('.katex')]"
-            ".some(e => e.textContent.includes('Matmul'))"
+            ".some(e => e.textContent.includes('Linear'))"
         )
         boxes = await rendered_texts(page)
         await page.get_by_role("button", name="All broadcasted").click()
         await page.wait_for_function(
             "() => ![...document.querySelectorAll('.katex')]"
-            ".some(e => e.textContent.includes('Matmul'))"
+            ".some(e => e.textContent.includes('Linear'))"
         )
         readout_centre = await page.evaluate(CENTRE_OF_KATEX, "Wout")
         assert readout_centre is not None
@@ -97,8 +97,8 @@ def test_the_page_draws_switches_form_and_opens_an_inspection_box(
     assert result["legend_rows"] == 5
     for text in ("Echo State Network", "One Step", "tanh", "Win", "Wout", "αx"):
         assert text in result["broadcasted"], text
-    assert "Matmul" in result["boxes"]
     assert "[t, m]" in result["boxes"]
+    assert "Win" in result["boxes"]
     (hovered,) = result["hovered"]
     assert "click to lock" in hovered
     assert "A learned linear" in hovered

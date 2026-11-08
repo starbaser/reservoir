@@ -1,4 +1,4 @@
-"""Draw every model through PyNCD's `notebook_diagrams.show_diagram`, by one of five
+"""Draw every model through PyNCD's `notebook_diagrams.show_diagram`, by one of four
 deliveries, and write its SSA listing beside the result.
 
     python -m reservoir.render --delivery page --output-dir outputs/diagrams
@@ -6,14 +6,8 @@ deliveries, and write its SSA listing beside the result.
 `page` writes one standalone HTML page per model, which opens from the disk with no
 server and no network. `headless-png` and `headless-pdf` draw in a Chromium that PyNCD
 starts itself through Playwright and write the image. `send` sends each model to the
-tsncd page open on the relay, which redraws it, and `capture` asks that page for its
-drawing and writes the PNG. Every delivery reads the tsncd bundle `TSNCD_DIST` names,
-and the last two need the relay and the page of `just up`.
-
-`capture` goes through `websocket_transfer.capture.capture_morphism` rather than
-through `show_diagram`, because `show_diagram` falls back to its own headless browser
-when no page answers, and a capture that did not come from the open page would say
-nothing about the viewer.
+tsncd page open on tsncd's relay, which redraws it. The first three read the tsncd
+bundle `TSNCD_DIST` names, and `send` needs tsncd's `npm run server` and `npm run dev`.
 """
 
 from __future__ import annotations
@@ -27,16 +21,12 @@ import io
 import pathlib
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import cast
 
 import agent_display
 import data_structure.Category as cat
-import data_structure.Term as fd
-import websocket_transfer.capture as capture
-import websocket_transfer.websockets_transfer as wst
 from notebooks.display import notebook_diagrams
 
-from reservoir import echo_state_network, tsncd_bundle
+from reservoir import echo_state_network
 
 
 class Delivery(enum.Enum):
@@ -44,7 +34,6 @@ class Delivery(enum.Enum):
     HEADLESS_PNG = "headless-png"
     HEADLESS_PDF = "headless-pdf"
     SEND = "send"
-    CAPTURE = "capture"
 
 
 @dataclass(frozen=True)
@@ -91,7 +80,7 @@ def settings_for(
     match delivery:
         case Delivery.PAGE:
             return dataclasses.replace(shared, mode=notebook_diagrams.DiagramMode.HTML)
-        case Delivery.SEND | Delivery.CAPTURE:
+        case Delivery.SEND:
             return dataclasses.replace(
                 shared, mode=notebook_diagrams.DiagramMode.BROWSER
             )
@@ -118,37 +107,12 @@ def output_of(
             return None
         case Delivery.HEADLESS_PDF:
             return output_dir / f"{slug}.pdf"
-        case Delivery.HEADLESS_PNG | Delivery.CAPTURE:
+        case Delivery.HEADLESS_PNG:
             return output_dir / f"{slug}.png"
 
 
 class DiagramNotDelivered(RuntimeError):
-    """`show_diagram` reported that it could not draw, in the text it prints, or the
-    open page returned no image."""
-
-
-async def capture_from_the_open_page(
-    *,
-    term: cat.Morphism,
-    settings: notebook_diagrams.DiagramSettings,
-    path: pathlib.Path,
-) -> None:
-    """Ask the page open on the relay for its drawing of `term`, presented as
-    `show_diagram` presents it, and write the PNG to `path`. Raises when no page
-    answers, through `wst.CaptureError`."""
-    presented = notebook_diagrams.present_each_side(term, settings)
-    packaged, settings, auxiliary = notebook_diagrams.package_auxiliary(
-        presented, settings
-    )
-    with contextlib.redirect_stdout(io.StringIO()):
-        image = await wst.capture_term(
-            cast(fd.GeneralTerm, packaged),
-            settings=notebook_diagrams.page_settings(settings),
-            capture=capture.capture_options("png", 2.0, 16, "auto"),
-            timeout=settings.timeout,
-            auxiliary=auxiliary,
-        )
-    path.write_bytes(image)
+    """`show_diagram` reported that it could not draw, in the text it prints."""
 
 
 async def draw(
@@ -176,24 +140,14 @@ async def draw(
         term = figure.build()
         settings = settings_for(delivery=delivery, output_dir=output_dir, slug=slug)
         output = output_of(delivery=delivery, output_dir=output_dir, slug=slug)
-        if delivery is Delivery.CAPTURE and output is not None:
-            try:
-                await capture_from_the_open_page(
-                    term=term, settings=settings, path=output
-                )
-            except (OSError, wst.CaptureError) as error:
-                raise DiagramNotDelivered(
-                    f"{slug}: the open page answered: {error}"
-                ) from error
-        else:
-            printed = io.StringIO()
-            with contextlib.redirect_stdout(printed):
-                await notebook_diagrams.show_diagram(
-                    term, settings=settings, slug=slug, title=figure.title
-                )
-            for line in printed.getvalue().splitlines():
-                if line.startswith("(no diagram"):
-                    raise DiagramNotDelivered(f"{slug}: {line}")
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            await notebook_diagrams.show_diagram(
+                term, settings=settings, slug=slug, title=figure.title
+            )
+        for line in printed.getvalue().splitlines():
+            if line.startswith("(no diagram"):
+                raise DiagramNotDelivered(f"{slug}: {line}")
         if output is not None and not output.is_file():
             raise DiagramNotDelivered(f"{slug}: {output} was not written")
         listing = output_dir / f"{slug}.txt"
@@ -214,7 +168,6 @@ def main(argv: Sequence[str] | None = None) -> None:
         metavar="|".join(delivery.value for delivery in Delivery),
     )
     args = parser.parse_args(argv)
-    tsncd_bundle.name_vendored_bundle_when_unset()
     for figure in asyncio.run(draw(output_dir=args.output_dir, delivery=args.delivery)):
         if figure.output is None:
             print(f"sent {figure.slug} to the open page")

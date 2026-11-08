@@ -3,10 +3,9 @@
 An echo state network written as a neural circuit diagram with
 [PyNCD](https://github.com/starbaser/pyncd), drawn with
 [tsncd](https://github.com/starbaser/tsncd), and run in PyTorch on a GPU. The repository
-is a worked example: the network as a PyNCD expression, an evaluator that runs that
-expression on numbers, a plain-Torch reference that runs the same equations and fits the
-readout, the diagram as a page, as figures, and in tsncd's live viewer, and a test suite
-that checks every part.
+is a worked example: the network as a PyNCD expression, its step and its readout
+compiled to PyTorch by PyNCD, the ridge fit of the readout, the diagram as a page, as
+figures, and in tsncd's live viewer, and a test suite that checks every part.
 
 ## The model
 
@@ -30,8 +29,8 @@ time with a linear least-squares readout.
 
 The neural circuit diagram is the same model drawn as wires and operations. A wire is an
 array axis, labelled by its name, a box is an operation, and the repeated block is the
-loop over the steps. The same expression that draws the diagram is evaluated on numbers
-here, so the picture and the computation cannot drift apart.
+loop over the steps. PyNCD compiles the step of that same expression to PyTorch, so the
+picture and the computation cannot drift apart.
 
 ## What is in the repository
 
@@ -39,13 +38,10 @@ here, so the picture and the computation cannot drift apart.
 | ----------------------------------------- | ------------------------------------------------------------------------------------- |
 | `src/reservoir/axes.py`                   | The four axes `t`, `m`, `n`, `p` and the arrays between the operations.               |
 | `src/reservoir/echo_state_network.py`     | The network as a PyNCD expression, one function per part of the equations.            |
-| `src/reservoir/evaluate_term.py`          | Runs a PyNCD expression on tensors, including the loop over the steps.                |
-| `src/reservoir/reference_torch.py`        | The same equations in plain Torch, the ridge fit, and the error measure.              |
+| `src/reservoir/run_in_torch.py`           | Compiles the step and the readout with PyNCD's `torch_compile` and runs the loop.     |
+| `src/reservoir/reservoir_weights.py`      | The random weights, the ridge fit of the readout, and the error measure.              |
 | `src/reservoir/run_echo_state_network.py` | The end-to-end run `just run` performs.                                               |
 | `src/reservoir/render.py`                 | Draws the diagram as a page, as PNG and PDF, and through the live viewer.             |
-| `src/reservoir/check_viewer.py`           | Drives the live viewer once in a headless browser and checks what it drew.            |
-| `package.json`                            | tsncd, pinned to one commit, and the tools its bundle and its dev server need.        |
-| `webpack.config.js`                       | tsncd's own webpack configuration, applied to tsncd installed under `node_modules/`.  |
 | `tests/`                                  | The checks, run with `just test`.                                                     |
 | `docs/echo-state-network.md`              | Each line of the equations beside its spelling in PyNCD, the listing, and the limits. |
 | `skills/using-ncd/`                       | A guide to PyNCD and tsncd as a whole, written for an agent and readable by a person. |
@@ -58,20 +54,18 @@ here, so the picture and the computation cannot drift apart.
 - Network access on the first install, for the PyNCD repository, the PyPI and PyTorch
   wheels, tsncd's npm dependencies and Playwright's Chromium.
 - Either Nix with flakes, which provides every tool below, or `git`, `uv`, Node 24 with
-  `npm`, `just` and `process-compose`.
+  `npm` and `just`.
 
 ## Installing with Nix
 
 ```bash
 git clone https://github.com/starbaser/reservoir.git && cd reservoir
 nix develop                  # or: direnv allow
-npm ci                       # tsncd at its pinned commit, under node_modules/
 ```
 
 The shell's `python` is a Nix-built virtual environment with this package editable,
-PyNCD built from the commit `uv.lock` pins, a tsncd bundle built from the commit
-`package-lock.json` pins and exported as `TSNCD_DIST`, and Playwright's Chromium from
-nixpkgs. `npm ci` installs tsncd itself, which the live viewer runs from.
+PyNCD built from the commit `uv.lock` pins, tsncd's bundle built from the commit
+`flake.lock` pins and exported as `TSNCD_DIST`, and Playwright's Chromium from nixpkgs.
 
 ## Installing without Nix
 
@@ -79,15 +73,21 @@ nixpkgs. `npm ci` installs tsncd itself, which the live viewer runs from.
 git clone https://github.com/starbaser/reservoir.git && cd reservoir
 uv sync                              # Python 3.14, Torch, PyNCD from its repository
 uv run playwright install chromium   # the browser for the figures and the checks
-npm ci                               # tsncd at its pinned commit, under node_modules/
-npm run tsncd:build                  # tsncd's bundle, for the page and the figures
 ```
 
 `uv` installs Python 3.14 if the machine has none. If Chromium refuses to start for want
-of system libraries, `uv run playwright install-deps chromium` installs them.
-`package.json` pins tsncd to one commit, and `npm ci` installs it under
-`node_modules/tsncd/` like any other package. PyNCD reads the bundle from there when
-`TSNCD_DIST` is unset. Every `just` recipe runs through `uv run`.
+of system libraries, `uv run playwright install-deps chromium` installs them. The pages
+and the figures also need tsncd's bundle: clone tsncd beside this repository as its
+README says, build it, and name the bundle.
+
+```bash
+git clone https://github.com/starbaser/tsncd.git ../tsncd
+git -C ../tsncd checkout b8649a6492c15244cf2b0be49e0acf2e2abb32d7
+(cd ../tsncd && npm install && npm run build)
+export TSNCD_DIST="$PWD/../tsncd/dist"
+```
+
+Every `just` recipe runs through `uv run`.
 
 ## Running the network
 
@@ -97,28 +97,29 @@ just run --device cpu        # without a GPU
 just run --leak 0.3 --delay 5
 ```
 
-The run prints three things. First, the SSA listing of the PyNCD expression, which is
-the diagram written as text, one operation per line, with the loop indented. Second, the
-largest difference between the readout computed by evaluating that expression and the
-readout computed by the Torch reference on the same random weights, which is at the
-level of float64 rounding. Third, the delay task: a reservoir of 100 units is run over a
-random sequence of 1000 steps, `W_out` is fit on steps 100 to 700 to return the input
-from `delay` steps before, and the normalised error (root mean square error divided by
-the standard deviation of the targets) is reported on steps 700 to 1000. At the defaults
-the error is 0.0083.
+The run prints two things. First, the SSA listing of the PyNCD expression, which is the
+diagram written as text, one operation per line, with the loop indented. Second, the
+delay task: PyNCD compiles the step and the readout of that expression to PyTorch, a
+reservoir of 100 units is run over a random sequence of 1000 steps by calling the
+compiled step once per step, `W_out` is fit on steps 100 to 700 to return the input from
+`delay` steps before, and the normalised error (root mean square error divided by the
+standard deviation of the targets) is reported on steps 700 to 1000. At the defaults the
+error is 0.0083.
 
 ## Using it from Python
 
 ```python
 import torch
 import agent_display
-import data_structure.Numeric as nm
-from reservoir import echo_state_network, evaluate_term, reference_torch
+from reservoir import echo_state_network, reservoir_weights, run_in_torch
 
 network = echo_state_network.echo_state_network()  # the PyNCD expression
 print(agent_display.listing(network))  # the SSA listing
 
-weights = reference_torch.random_reservoir(
+step = run_in_torch.compile_step(leak=1.0, inputs=1, units=100)  # torch_compile
+readout = run_in_torch.compile_readout(steps=300, units=100, outputs=1)
+
+weights = reservoir_weights.random_reservoir(
     inputs=1,
     units=100,
     leak=1.0,
@@ -128,33 +129,23 @@ weights = reference_torch.random_reservoir(
     device=torch.device("cuda"),
 )
 sequence = torch.rand(1000, 1, dtype=torch.float64) - 0.5
-states = reference_torch.run_reservoir(weights=weights, input_sequence=sequence)
-targets = torch.cat([torch.zeros(1, 1, dtype=torch.float64), sequence[:-1]])
-readout = reference_torch.fit_readout(
-    states=states[100:700], targets=targets[100:700].cuda(), ridge=1e-8
+states = run_in_torch.run_reservoir(step=step, weights=weights, input_sequence=sequence)
+targets = torch.cat([torch.zeros(1, 1, dtype=torch.float64), sequence[:-1]]).cuda()
+readout_weights = reservoir_weights.fit_readout(
+    states=states[100:700], targets=targets[100:700], ridge=1e-8
 )
-predicted = reference_torch.apply_readout(states=states[700:], readout=readout)
-print(reference_torch.normalised_error(predicted=predicted, targets=targets[700:]))
-
-(from_term,) = evaluate_term.evaluate(  # the expression itself, on numbers
-    term=echo_state_network.echo_state_network(leak=nm.Integer(1)),
-    inputs=(sequence[:20],),
-    sizes={"t": 20, "m": 1, "n": 100, "p": 1},
-    fixed_arrays={
-        "W^{in}": weights.input_weights.cpu(),
-        "W": weights.recurrent_weights.cpu(),
-    },
-    linear_weights={"W^{out}": readout.cpu()},
+predicted = run_in_torch.apply_readout(
+    readout=readout, states=states[700:], readout_weights=readout_weights
 )
+print(reservoir_weights.normalised_error(predicted=predicted, targets=targets[700:]))
 ```
 
-Every size in the expression is a symbol, and `sizes` binds them when the expression is
-evaluated. The leak is a symbol too, `alpha` in the diagram, and the evaluated
-expression is built with the rational it takes. PyNCD's own `torch_compile` does not
-compile this loop, because it has no rule for the loop's state slots or for the write of
-each state at its step, so `evaluate_term` runs the expression directly.
-`docs/echo-state-network.md` states what PyNCD derives from the expression and what it
-does not.
+`compile_step` and `compile_readout` follow the route of PyNCD's own tutorial: every
+weight is moved onto the tape, every size is bound to an integer, and `torch_compile`
+builds the module, which takes the weights as operands. PyNCD compiles a repeated block
+only for an integer repetition and has no rule for a tape slot, so the loop over the
+steps is a Python loop that calls the compiled step. `docs/echo-state-network.md` states
+what PyNCD derives from the expression and what it does not.
 
 ## Drawing the diagram
 
@@ -169,30 +160,22 @@ readout's formula.
 
 ## The live viewer
 
-tsncd's viewer is a relay and a page. A Python process sends a model to the relay, and
-every open page redraws it.
+tsncd's viewer is its relay and its page, run in the tsncd checkout exactly as tsncd's
+README says, each in a terminal of its own.
 
 ```bash
-just up               # tsncd's relay on localhost:8765 and page on http://127.0.0.1:3000/
-just send             # send the network to the relay; the open page redraws
-just capture          # write what the page draws to outputs/figures/
-just check-viewer     # the whole route once in a headless browser
-just logs             # the relay's log; `just logs page` for the page's
-just down
+(cd ../tsncd && npm run server)   # the relay on localhost:8765
+(cd ../tsncd && npm run dev)      # the page, which opens in the browser and connects
+just send                         # send the network to the relay; the page redraws
 ```
 
-Open `http://127.0.0.1:3000/` in a browser after `just up`. The two processes are
-tsncd's own relay server and dev server, run from `node_modules/tsncd/` through the
-`tsncd:relay` and `tsncd:page` scripts of `package.json` by `process-compose.yml`. The
-page takes a few seconds to compile the first time. If port 3000 is taken, put
-`TSNCD_PAGE_PORT=3100` in `.env`. The relay's port, 8765, is compiled into the page, so
-one relay at a time holds it.
+The relay holds the last model it was sent, so a refreshed page redraws it.
 
 ## Checks
 
 ```bash
-just test        # the whole suite: the expression, the evaluator against the reference,
-                 # the reference on the CPU and every GPU, the page, the figures, the run
+just test        # the whole suite: the expression, the compiled step and readout on the
+                 # CPU and every GPU, the page, the figures, the run
 just quality     # ruff format, ruff check, ty
 ```
 

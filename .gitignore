@@ -11,4 +11,3 @@ result-*
 .ruff_cache/
 .pytest_cache/
 outputs/
-node_modules/

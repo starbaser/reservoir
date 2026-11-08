@@ -143,41 +143,23 @@ npm ci && npm run build            # writes dist/
 export TSNCD_DIST="$PWD/dist"
 ```
 
-The reservoir repository instead pins tsncd in its `package.json` as a git dependency,
-installs it with `npm ci`, and builds the bundle under `node_modules/tsncd/dist` with a
-`webpack.config.js` that applies tsncd's own configuration without its `node_modules/`
-exclusion. `websocket_transfer.headless.find_dist` resolves an explicit `dist=`
-argument, then `$TSNCD_DIST`, then a `tsncd/dist` or `tsncd-public/dist` sibling of the
-pyncd package directory. An installed pyncd has no such sibling, so every consumer sets
-`TSNCD_DIST`. Rebuild the bundle after any tsncd change; headless captures and
-standalone pages render whatever was last built. The bundle dials the relay port
-compiled into it at build time, `PORT` with the default 8765.
+The reservoir repository's README names this checkout beside the repository.
+`websocket_transfer.headless.find_dist` resolves an explicit `dist=` argument, then
+`$TSNCD_DIST`, then a `tsncd/dist` or `tsncd-public/dist` sibling of the pyncd package
+directory. An installed pyncd has no such sibling, so every consumer sets `TSNCD_DIST`.
+Rebuild the bundle after any tsncd change; headless captures and standalone pages render
+whatever was last built. The bundle dials the relay port compiled into it at build time,
+`PORT` with the default 8765.
 
 ## Running the live page viewer
 
-tsncd ships both halves of the viewer, and a consumer runs them from its tsncd checkout
-as two long-running processes (process-compose shown; any supervisor works):
-
-```yaml
-processes:
-  relay:
-    # tsncd's relay between a sending Python process and every open page, on
-    # localhost:8765. It holds the last model, so a refreshed page redraws it. Node
-    # strips no types under node_modules/, so tsx runs the file.
-    command: npx tsx node_modules/tsncd/src/run_server.ts
-  page:
-    # tsncd's page on http://127.0.0.1:3000/, which connects to the relay, served by
-    # webpack's dev server with tsncd's configuration.
-    command: npx webpack serve --mode development --no-open --host 127.0.0.1
-```
-
-`websocket_transfer.send_morphism.send_morphism(term)` then redraws every open page, and
-`websocket_transfer.websockets_transfer.capture_term` asks the page for its drawing
-through the relay. pyncd's `run_server.py` is the same relay with the same messages and
-is not in the wheel;
-`python -c 'import asyncio, websocket_transfer.websockets_transfer as w; asyncio.run(w.DataServer().main())'`
-starts it from an installed pyncd. One relay at a time holds port 8765, and the bundle
-dials the port compiled into it.
+The viewer is tsncd's, run in its checkout as its README says: `npm run server` is the
+relay on localhost:8765 and `npm run dev` is the page, which connects to the relay.
+`notebook_diagrams.show_diagram` in `BROWSER` mode, or
+`websocket_transfer.send_morphism.send_morphism(term)`, sends a term to the relay and
+every open page redraws it. pyncd's `run_server.py` is the same relay with the same
+messages; one relay at a time holds the port, and the bundle dials the port compiled
+into it.
 
 ## Training a model that holds parameter arrays
 
@@ -245,9 +227,10 @@ affine `View`, a bare Para tape, an `ops.ConstantOp`, an `ops.FixedArray` or an
 integer. It compiles a `View` through a rearrangement alone; for an affine window the
 consumer supplies a precomputed neighbourhood table or registers a local constructor for
 the required read. A loop over a tape cannot be compiled at all; the reservoir
-repository's `evaluate_term.py` evaluates such a term directly instead. A directly
-compiled `Normalize` does not learn its gain as a parameter; use `gain=False` when that
-matches the authored model, or grab the gain and use the tape pipeline.
+repository compiles the body of its loop, one step of the recurrence, and calls it once
+per step from Python, carrying the state between the calls. A directly compiled
+`Normalize` does not learn its gain as a parameter; use `gain=False` when that matches
+the authored model, or grab the gain and use the tape pipeline.
 
 ## What a consumer does not get from the wheel
 
@@ -275,9 +258,7 @@ notebooks and vault in the repository.
 - tsncd's `defaultRenderHandlerSettings.debugBorders` is `true`; pyncd's
   `display_settings` sends `false`. A custom sender must send it too.
 - `show_diagram` falls back to its own headless browser when the open page does not
-  answer a capture. A check of the page viewer goes through
-  `websocket_transfer.capture.capture_morphism` or `wst.capture_term`, which raise
-  instead.
+  answer a capture, so a capture says nothing about whether a page is open.
 - The relay port 8765 is held by exactly one process; the page port is 3000 under
   `npm run dev`.
 
@@ -287,11 +268,11 @@ notebooks and vault in the repository.
 - [ ] pin PyNCD and tsncd to a matched pair; record both revisions in the project guide
 - [ ] uv source: pyncd as a git dependency at one commit; with Nix, the hatchling override for it
 - [ ] flake: tsncd input + buildNpmPackage with npmDepsHash; dev shell exports TSNCD_DIST and PLAYWRIGHT_BROWSERS_PATH
-- [ ] without Nix: a script that builds the tsncd bundle at the pinned commit and writes TSNCD_DIST to .env
+- [ ] without Nix: the tsncd checkout at the pinned commit, built with `npm install && npm run build`, named by TSNCD_DIST
 - [ ] `python -c "import construction_helpers, websocket_transfer.headless as h; print(h.find_dist())"` succeeds
 - [ ] extras: pyncd[torch] for compilation, pyncd[diagrams] for the relay and pages, pyncd[headless] for headless capture
 - [ ] a model with parameter arrays follows `grab_parameters`, size binding, grouping-block removal, `detape` and `ConstructedModule.construct`; a local Torch constructor is registered only after checking both registries
 - [ ] a render module draws every model with notebook_diagrams.show_diagram (HTML, INTERACTIVE) and writes its listing
-- [ ] executable models compare outputs and gradients with a plain-Torch control; a term the compiler cannot run is evaluated directly and compared the same way
+- [ ] executable models compare outputs and gradients with a plain-Torch control; a loop the compiler cannot run has its body compiled and is iterated from Python
 - [ ] only the render module imports notebooks/display; nothing imports run_server.py
 ```

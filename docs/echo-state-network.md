@@ -11,22 +11,23 @@ y_t = W_out h_t
 ```
 
 `W_in` over `(m, n)` and `W` over `(n, n)` are drawn at random and never changed.
-`W_out` over `(n, p)` is the only learned array, and it is fit by ridge regression over
-the states rather than by gradient descent. `src/reservoir/echo_state_network.py` writes
-the network as a PyNCD morphism and `src/reservoir/reference_torch.py` runs the same
-equations in Torch.
+`W_out` over `(n, p)` is the only array that is fit, and it is fit by ridge regression
+over the states rather than by gradient descent. `src/reservoir/echo_state_network.py`
+writes the network as a PyNCD morphism, `src/reservoir/run_in_torch.py` compiles its
+step and its readout with PyNCD's `torch_compile`, and
+`src/reservoir/reservoir_weights.py` draws the weights and fits the readout.
 
 ## Each part of the equations has one spelling in PyNCD
 
 | In the equations                | In the morphism                                                                                                                                                         |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | the sequence `u` over `t` steps | the domain array `R[t, m]`                                                                                                                                              |
-| `W_in u_t` at every step        | `ops.FixedArray` for `W_in` contracted with the sequence by `einsum`, before the loop, broadcast over `t`                                                               |
 | the recurrence over `t`         | a `cat.Block` repeated `\|t\|` times whose tag names the counter `i_t`                                                                                                  |
-| `u_t` inside step `i_t`         | an `ops.View` whose row has no domain axis and the shift `i_t`                                                                                                          |
+| `u_t` inside step `i_t`         | an `ops.View` of the sequence whose row has no domain axis and the shift `i_t`                                                                                          |
+| `W_in u_t`                      | `ops.Linear` from `m` to `n`                                                                                                                                            |
 | `h_{t-1}` and `h_t`             | a loop variable on the tape slot `h`: `Para.StreamGrab` reads the state the iteration starts from and `Para.StreamDrop` writes the state the next iteration starts from |
 | `h_{-1} = 0`                    | `ops.ConstantOp` zeros dropped on the slot before the loop                                                                                                              |
-| `W h_{t-1}`                     | `ops.FixedArray` for `W` contracted over two index variables of `n`, because both axes of `W` are the reservoir axis                                                    |
+| `W h_{t-1}`                     | `ops.Linear` from `n` to `n`                                                                                                                                            |
 | `tanh`                          | `ops.Arithmetic` with the formula `2 sigma(2x) - 1`, named `\tanh`                                                                                                      |
 | `(1 - alpha) h + alpha a`       | two `ops.Arithmetic` maps in the symbol `alpha` and an `ops.AdditionOp`                                                                                                 |
 | the states `H` over every step  | a second loop variable on the slot `H`, to which each step adds its state written at position `i_t` by an `aops.CovariantView`                                          |
@@ -36,31 +37,29 @@ The SSA listing of the term reads as follows.
 
 ```
 \text{Echo State Network} {
-  %2 = FixedArray<W^{in}>() : R[{m}, {n}]
-  %3 = Einops(%2[{m}, n], %0[t, {m}]) : R[t, n]
   \text{Reservoir} {
-    %4 = ConstantOp() : R[n]
-     = Drop<h>(%4)
-    %5 = ConstantOp() : R[t, n]
-     = Drop<H>(%5)
+    %2 = ConstantOp() : R[n]
+     = Drop<h>(%2)
+    %3 = ConstantOp() : R[t, n]
+     = Drop<H>(%3)
     loop |t| times {
-      %6 = View<it>(%3[t, n]) : R[n]   via i_t
-      %7 = StreamGrab<h>() : R[n]
-      %8 = StreamGrab<H>() : R[t, n]
-      %9 = FixedArray<W>() : R[{n}, {n}]
-      %10 = Einops(%9[{n}, n], %7[{n}]) : R[n]
-      %11 = AdditionOp<+>(%6[n], %10[n]) : R[n]
-      %12 = Arithmetic<\tanh>(%11[n]) : R[n]
-      %13 = Arithmetic<\alpha x>(%12[n]) : R[n]
-      %14 = Arithmetic<x (1 - \alpha)>(%7[n]) : R[n]
-      %15 = AdditionOp<+>(%13[n], %14[n]) : R[n]
-      %16 = CovariantView<i_t>(%15[n]) : R[{t}, n]
-      %17 = AdditionOp<+>(%16[t, n], %8[t, n]) : R[t, n]
-       = StreamDrop<h>(%15)
-       = StreamDrop<H>(%17)
+      %4 = View<it>(%0[t, m]) : R[m]   via i_t
+      %5 = StreamGrab<h>() : R[n]
+      %6 = StreamGrab<H>() : R[t, n]
+      %7 = Linear<W^{in}>(%4[{m}]) : R[{n}]
+      %8 = Linear<W>(%5[{n}]) : R[{n}]
+      %9 = AdditionOp<+>(%7[n], %8[n]) : R[n]
+      %10 = Arithmetic<\tanh>(%9[n]) : R[n]
+      %11 = Arithmetic<\alpha x>(%10[n]) : R[n]
+      %12 = Arithmetic<x (1 - \alpha)>(%5[n]) : R[n]
+      %13 = AdditionOp<+>(%11[n], %12[n]) : R[n]
+      %14 = CovariantView<i_t>(%13[n]) : R[{t}, n]
+      %15 = AdditionOp<+>(%14[t, n], %6[t, n]) : R[t, n]
+       = StreamDrop<h>(%13)
+       = StreamDrop<H>(%15)
     }
   }
-  %1 = Linear<W^{out}>(%17[t, {n}]) : R[t, {p}]
+  %1 = Linear<W^{out}>(%15[t, {n}]) : R[t, {p}]
 }
 ```
 
@@ -77,22 +76,26 @@ in the PyNCD repository.
 
 - **The diagram.** Every class the term holds has a tsncd mirror. `just render` writes
   the standalone page and the listing under `outputs/diagrams/`, `just figures` draws
-  PNG and PDF figures headless, and `just up` with `just send` draws it in the live page
-  viewer. On the page, the three forms and the two themes switch with the buttons, and
-  the inspection box of `W^{out}` opens on the pointer with the readout's formula. The
-  blocks carry their title and formula in the page's records, and this tsncd revision
-  opens no box on a block drawn as a backdrop, only on an operator that carries an
-  expansion.
-- **The parameters.** `show_grabbed_parameters.parameter_arrays` reports `W_out` over
-  `(n, p)` and nothing else, so a derived backward pass gives `W_in` and `W` no slot.
-  That matches the model, in which only the readout is trained.
-- **The numbers.** `torch_compile` has no rule for a tape seed, an `ops.ConstantOp`, an
-  `ops.FixedArray` or an `aops.CovariantView`, compiles a repeated block only when its
-  repetition is an integer, and reads every `ops.View` as the identity, so the loop is
-  not compiled. `src/reservoir/evaluate_term.py` evaluates the term instead, running its
-  loop, its tape and its reindexings on tensors, and `tests/test_evaluate_term.py`
-  checks that the term and `reference_torch` agree to float64 tolerance on the same
-  weights. That agreement is what ties the diagram to the numbers.
+  PNG and PDF figures headless, and `just send` draws it in tsncd's page, with tsncd's
+  `npm run server` and `npm run dev` running in its checkout. On the page, the three
+  forms and the two themes switch with the buttons, and the inspection box of `W^{out}`
+  opens on the pointer with the readout's formula. The blocks carry their title and
+  formula in the page's records, and this tsncd revision opens no box on a block drawn
+  as a backdrop, only on an operator that carries an expansion.
+- **The parameters.** `show_grabbed_parameters.parameter_arrays` reports the three
+  `ops.Linear`s, `W_in` over `(m, n)`, `W` over `(n, n)` and `W_out` over `(n, p)`. The
+  model fits `W_out` alone and holds the other two fixed, which is a choice about
+  training and not a property of the term.
+- **The numbers.** `src/reservoir/run_in_torch.py` compiles `one_step` and `readout`
+  with `torch_compile` by the route of PyNCD's tutorial
+  [`check_gradients_in_torch.py`](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/website/tutorial/check_gradients_in_torch.py):
+  `grab_parameters`, a `NumericConfig` for the sizes, `remove_grouping_blocks`,
+  `detape`, `ConstructedModule.construct`. The compiled step takes `u_t`, `h_{t-1}`, `W`
+  and `W_in` and returns `h_t`. `torch_compile` compiles a repeated block only when its
+  repetition is an integer and has no rule for a tape slot, so the loop over the steps
+  is run in Python by calling the compiled step once per step.
+  `tests/test_run_in_torch.py` checks the compiled step against the update equation to
+  float64 tolerance on the CPU and on every CUDA device.
 - **No ridge regression.** The closed-form fit needs a matrix inverse or solve, and
   PyNCD has no such operator. The fit is a forward-pass write to the readout's slot in
   the sense of PyNCD's
@@ -106,10 +109,11 @@ in the PyNCD repository.
 
 ## Extending the starter
 
-- A bias on the units is one more `ops.FixedArray` over `(n,)` added before the tanh.
-- Output feedback `W_fb y_{t-1}` is a fixed array over `(p, n)` contracted with the
+- A bias on the units is an `ops.Linear` with a bias, or a parameter array over `(n,)`
+  added before the tanh.
+- Output feedback `W_fb y_{t-1}` is an `ops.Linear` from `p` to `n` applied to the
   readout of the step before, which makes the readout part of the loop.
 - A readout over `[h_t; u_t]` is two `ops.Linear`s summed, per PyNCD's ruling that a
   linear map cut into parts is one linear map per part.
-- The spectral radius and the sparsity of `W` are properties of the values the fixed
-  array holds. The term records them only in the array's name or formula.
+- The spectral radius and the sparsity of `W` are properties of the values the weight
+  holds. The term records them only in the operator's name or formula.

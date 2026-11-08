@@ -6,7 +6,8 @@ reads every state out with one learned linear map. The update is
     h_t = (1 - alpha) h_{t-1} + alpha tanh(W_in u_t + W h_{t-1}),    h_{-1} = 0
     y_t = W_out h_t
 
-where `W_in` and `W` are fixed random arrays and `W_out` is the only learned map.
+where `W_in` and `W` are drawn at random and never changed and `W_out` is the only map
+that is fit.
 
 The recurrence reads the state of the step before, so it cannot be an operator
 broadcast over the steps. It is a `cat.Block` repeated once per step whose counter
@@ -18,10 +19,11 @@ iteration starts from. The states `H` over every step are a second loop variable
 each iteration writes its state at position `i_t` through a covariant view and adds the
 write. Both start from zeros that a `Para.Drop` puts on each slot before the loop.
 
-`W_in` and `W` are `ops.FixedArray`s, which the model reads and never learns, so a
-derived backward pass gives them no slot. `W_out` is an `ops.Linear`, which holds its
-weight and is the one learned array. `docs/echo-state-network.md` states the mapping
-from the equations to the morphism and what PyNCD can and cannot derive from it.
+The three matrices are `ops.Linear`s. `one_step` is the update from the input and the
+state of one step to the next state, and `run_in_torch` compiles it with PyNCD's
+`torch_compile` through the route of PyNCD's tutorial, which hands every weight to the
+compiled module as an operand. `docs/echo-state-network.md` states the mapping from
+the equations to the morphism and what PyNCD derives from it.
 """
 
 from __future__ import annotations
@@ -37,7 +39,6 @@ import data_structure.Term as fd
 import para.data_structure.Para as Para
 
 from reservoir.axes import (
-    DRIVE,
     INPUT_SEQUENCE,
     STATE,
     STATES,
@@ -145,28 +146,18 @@ def pointwise(
     return ops.Arithmetic.template(formula, base=cat.Array(R, shape), name=name)
 
 
-def drive_from_inputs() -> RealMorphism:
-    """`W_in u_t` at every step, which depends on no state and so stands before the
-    loop, broadcast over the steps."""
-    input_weights = ops.FixedArray.template(INPUT_WEIGHTS_NAME, (inputs, units), R)
-    contraction = einops_simplification.einsum(
-        ((inputs, units), (steps, inputs)), (steps, units), R
+def input_weights() -> cat.Broadcasted:
+    """`W_in`, from one input vector to the units."""
+    return ops.Linear.template(
+        input_size=(inputs,), output_size=(units,), name=INPUT_WEIGHTS_NAME
     )
-    return (input_weights * hold(INPUT_SEQUENCE)) @ contraction
 
 
-def drive_from_state() -> RealMorphism:
-    """`W h` for one state. Both axes of `W` are the reservoir axis, so the contraction
-    is written over two index variables of that axis rather than over the axis."""
-    source = einops_simplification.IndexVariable("j", units)
-    target = einops_simplification.IndexVariable("k", units)
-    recurrent_weights = ops.FixedArray.template(
-        RECURRENT_WEIGHTS_NAME, (units, units), R
+def recurrent_weights() -> cat.Broadcasted:
+    """`W`, from the units to the units."""
+    return ops.Linear.template(
+        input_size=(units,), output_size=(units,), name=RECURRENT_WEIGHTS_NAME
     )
-    contraction = einops_simplification.einsum(
-        ((source, target), (source,)), (target,), R
-    )
-    return (recurrent_weights * hold(STATE)) @ contraction
 
 
 def leaky_update(leak: nm.Numeric) -> RealMorphism:
@@ -179,20 +170,29 @@ def leaky_update(leak: nm.Numeric) -> RealMorphism:
     )
 
 
-def one_step(leak: nm.Numeric, counter: nm.Numeric) -> RealMorphism:
-    """Step `counter` of the loop: its drive, the state the iteration starts from and
-    the states written so far, to the states with this step's state written at
-    `counter`. The next state and the states are dropped for the next iteration."""
+def one_step(leak: nm.Numeric) -> RealMorphism:
+    """The update of one step: the input `u_t` and the state `h_{t-1}` to the state
+    `h_t`. This is the morphism `run_in_torch` compiles."""
+    return (
+        (input_weights() * route((0, 0), (STATE,)))
+        @ (hold(STATE) * recurrent_weights() * hold(STATE))
+        @ (add_over((units,)) * hold(STATE))
+        @ leaky_update(leak)
+    )
+
+
+def loop_iteration(leak: nm.Numeric, counter: nm.Numeric) -> RealMorphism:
+    """Iteration `counter` of the loop: the input sequence, the state the iteration
+    starts from and the states written so far, to the states with this step's state
+    written at `counter`. The next state and the states are dropped for the next
+    iteration."""
     return (
         (
-            read_at(axis=steps, position=counter, rest=(units,))
+            read_at(axis=steps, position=counter, rest=(inputs,))
             * Para.StreamGrab(tape=STATE_SLOT, size=STATE)
             * Para.StreamGrab(tape=STATES_SLOT, size=STATES)
         )
-        @ route((0, 1, 1, 2), (STATE, STATE, STATES))
-        @ (hold(STATE) * drive_from_state() * hold(STATE) * hold(STATES))
-        @ (add_over((units,)) * hold(STATE) * hold(STATES))
-        @ (leaky_update(leak) * hold(STATES))
+        @ (one_step(leak) * hold(STATES))
         @ route((0, 0, 1), (STATE, STATES))
         @ (
             hold(STATE)
@@ -219,7 +219,7 @@ def step_repeated_over_the_steps(leak: nm.Numeric) -> cat.Block:
     """One step repeated once per step of the sequence, with the counter named."""
     counter = nm.FreeNumeric.named(STEP_COUNTER_NAME)
     return cat.Block.template(
-        one_step(leak=leak, counter=counter),
+        loop_iteration(leak=leak, counter=counter),
         title=r"\text{One Step}",
         fill_color=STEP_COLOUR,
         repetition=steps.local_size(),
@@ -230,9 +230,9 @@ def step_repeated_over_the_steps(leak: nm.Numeric) -> cat.Block:
 
 def reservoir_loop(leak: nm.Numeric) -> cat.Block:
     """The reservoir: the state and the states started at zero, then the loop. It reads
-    the drive at every step and returns the state after every step."""
+    the input sequence and returns the state after every step."""
     return cat.Block.template(
-        (start_state_at_zero() * start_states_at_zero() * hold(DRIVE))
+        (start_state_at_zero() * start_states_at_zero() * hold(INPUT_SEQUENCE))
         @ step_repeated_over_the_steps(leak=leak),
         title=r"\text{Reservoir}",
         fill_color=RESERVOIR_COLOUR,
@@ -250,7 +250,7 @@ def readout() -> cat.BroadcastedCategory:
 def echo_state_network(leak: nm.Numeric = LEAK) -> cat.Block:
     """The whole network, from the input sequence to the readout at every step."""
     return cat.Block.template(
-        drive_from_inputs() @ reservoir_loop(leak=leak) @ readout(),
+        reservoir_loop(leak=leak) @ readout(),
         title=r"\text{Echo State Network}",
         fill_color=NETWORK_COLOUR,
     )

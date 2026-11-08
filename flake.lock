@@ -67,7 +67,24 @@
         "nixpkgs": "nixpkgs",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
+        "tsncd": "tsncd",
         "uv2nix": "uv2nix"
+      }
+    },
+    "tsncd": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792974614,
+        "narHash": "sha256-noynmkqm0BwFVQ/sQj7soWFUQbIV9o/cAMiy4SN5n98=",
+        "owner": "starbaser",
+        "repo": "tsncd",
+        "rev": "b8649a6492c15244cf2b0be49e0acf2e2abb32d7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "starbaser",
+        "repo": "tsncd",
+        "type": "github"
       }
     },
     "uv2nix": {
