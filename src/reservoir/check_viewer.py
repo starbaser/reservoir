@@ -1,33 +1,36 @@
 """Drive the page viewer once, end to end, and write what it drew.
 
-    python -m reservoir.check_viewer --output-dir outputs/figures
+    python -m reservoir.check_viewer --output-dir outputs/figures \
+        --page-url http://127.0.0.1:3000/
 
-With the relay and the site of `just up` running, the check opens the served page in
-Playwright's Chromium, which connects to the relay as a tsncd page does, sends every
-model through the relay with `render.Delivery.SEND`, waits until the page's own DOM
-shows each model's title, asks the page for its drawing with `render.Delivery.CAPTURE`,
-which goes through the relay alone and never falls back to a headless browser, and
-writes a screenshot of the page beside the captured PNG. It fails if the page does not
-connect, if a send is not drawn, or if a capture is not a PNG. `SITE_PORT` names the
-site's port, default 8780, and PyNCD's `PORT` names the relay's, default 8765.
+With tsncd's relay and page of `just up` running, the check opens the page in
+Playwright's Chromium, waits for it to connect to the relay, sends every model through
+the relay with `render.Delivery.SEND`, waits until the page's own DOM shows each
+model's title, asks the page for its drawing with `render.Delivery.CAPTURE`, which goes
+through the relay alone and never falls back to a headless browser, and writes a
+screenshot of the page beside the captured PNG. It fails if the page does not answer,
+does not connect, does not draw a sent model, or returns no PNG. `--page-url` is where
+tsncd's dev server serves the page, and the relay listens on 8765.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import os
 import pathlib
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from playwright.async_api import async_playwright
+from playwright.async_api import Error as PlaywrightError
+from playwright.async_api import Page, async_playwright
 
 from reservoir import render, tsncd_bundle
 
 PNG_MAGIC = b"\x89PNG"
 CONNECTED_MESSAGE = "Connected"
 """What the page logs to the console once its socket to the relay is open."""
+PAGE_TIMEOUT_SECONDS = 90
+"""How long the dev server may take to compile the page after `just up`."""
 CONNECT_TIMEOUT_SECONDS = 15
 DRAW_TIMEOUT_SECONDS = 30
 
@@ -45,11 +48,24 @@ class ViewerCheck:
     """A screenshot of the live page after the last model was drawn."""
 
 
-def site_url() -> str:
-    return f"http://127.0.0.1:{os.environ.get('SITE_PORT', '8780')}/"
+async def open_the_page(page: Page, *, page_url: str) -> None:
+    """Load the page, waiting for the dev server to answer and the bundle to load."""
+    deadline = asyncio.get_running_loop().time() + PAGE_TIMEOUT_SECONDS
+    while True:
+        try:
+            await page.goto(page_url, wait_until="load")
+            await page.wait_for_function("window.tsncd !== undefined", timeout=5000)
+            return
+        except PlaywrightError as error:
+            if asyncio.get_running_loop().time() > deadline:
+                raise ViewerNotWorking(
+                    f"the page at {page_url} did not load within "
+                    f"{PAGE_TIMEOUT_SECONDS} s: {error}"
+                ) from error
+            await asyncio.sleep(1)
 
 
-async def check(*, output_dir: pathlib.Path) -> ViewerCheck:
+async def check(*, output_dir: pathlib.Path, page_url: str) -> ViewerCheck:
     output_dir.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
@@ -63,13 +79,12 @@ async def check(*, output_dir: pathlib.Path) -> ViewerCheck:
                 connected.set() if message.text == CONNECTED_MESSAGE else None
             ),
         )
-        await page.goto(site_url(), wait_until="load")
-        await page.wait_for_function("window.tsncd !== undefined")
+        await open_the_page(page, page_url=page_url)
         try:
             await asyncio.wait_for(connected.wait(), CONNECT_TIMEOUT_SECONDS)
         except TimeoutError as error:
             raise ViewerNotWorking(
-                f"the page at {site_url()} did not connect to the relay within "
+                f"the page at {page_url} did not connect to the relay within "
                 f"{CONNECT_TIMEOUT_SECONDS} s"
             ) from error
         sent = await render.draw(output_dir=output_dir, delivery=render.Delivery.SEND)
@@ -108,9 +123,10 @@ async def check(*, output_dir: pathlib.Path) -> ViewerCheck:
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=pathlib.Path, required=True)
+    parser.add_argument("--page-url", default="http://127.0.0.1:3000/")
     args = parser.parse_args(argv)
     tsncd_bundle.name_vendored_bundle_when_unset()
-    result = asyncio.run(check(output_dir=args.output_dir))
+    result = asyncio.run(check(output_dir=args.output_dir, page_url=args.page_url))
     for capture in result.captures:
         print(f"captured {capture}")
     print(f"screenshot {result.screenshot}")

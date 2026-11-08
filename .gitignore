@@ -11,5 +11,5 @@ result-*
 .ruff_cache/
 .pytest_cache/
 outputs/
-# The tsncd checkout and bundle tools/build_tsncd_bundle.py places for an installation without Nix.
+# The tsncd checkout tools/setup_tsncd.py places, which `just up` runs the viewer from.
 third_party/

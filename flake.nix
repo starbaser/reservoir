@@ -177,6 +177,8 @@
               s.pkgs.uv
               s.pkgs.just
               s.pkgs.process-compose
+              # tools/setup_tsncd.py and the viewer's `npm run server` and `npm run dev`.
+              s.pkgs.nodejs_24
               s.pkgs.playwright-driver.browsers
             ];
             env = {

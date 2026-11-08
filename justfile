@@ -1,3 +1,5 @@
+set dotenv-load
+
 test:
     uv run pytest
 
@@ -15,10 +17,16 @@ quality:
     uv run ruff check --fix .
     uv run ty check src/
 
-# The tsncd bundle at the pinned revision under third_party/tsncd/dist, for an
-# installation without Nix. Needs git, node 24 and npm.
-build-tsncd-bundle:
-    python3 tools/build_tsncd_bundle.py
+# tsncd at the pinned revision under third_party/tsncd/: cloned, its npm dependencies
+# installed and its bundle built. `just up` runs tsncd's relay and page from there.
+# Needs git, node 24 and npm.
+setup-tsncd:
+    python3 tools/setup_tsncd.py
+
+# Build the network, print its listing, check the term against the Torch reference and
+# fit the readout on a delay task. `--device cpu` runs it without a GPU.
+run *ARGS:
+    uv run python -m reservoir.run_echo_state_network {{ARGS}}
 
 # One standalone HTML page and one SSA listing per model, under outputs/diagrams/.
 # The page opens from the disk with no server and no network.
@@ -30,14 +38,15 @@ figures:
     uv run python -m reservoir.render --delivery headless-png --output-dir outputs/figures
     uv run python -m reservoir.render --delivery headless-pdf --output-dir outputs/figures
 
-# The relay on localhost:8765 and the live page on http://127.0.0.1:8780/.
+# tsncd's relay on localhost:8765 and tsncd's page on http://127.0.0.1:3000/, or on
+# the port TSNCD_PAGE_PORT names.
 up:
     process-compose up --detached
 
 down:
     process-compose down
 
-# The log of one viewer process, relay or site, from the file process-compose writes.
+# The log of one viewer process, relay or page, from the file process-compose writes.
 # process-compose 1.122.0 answers its own `process logs` command with Not Found over the
 # unix socket, so the file is read directly.
 logs process='relay' *ARGS:
@@ -51,7 +60,7 @@ send:
 capture:
     uv run python -m reservoir.render --delivery capture --output-dir outputs/figures
 
-# Drive the whole viewer once: open the served page headless, send the model through
-# the relay, capture the page's drawing, and check the image. Needs `just up`.
+# Drive the whole viewer once: open tsncd's page headless, send the model through the
+# relay, capture the page's drawing, and check the image. Needs `just up`.
 check-viewer:
-    uv run python -m reservoir.check_viewer --output-dir outputs/figures
+    uv run python -m reservoir.check_viewer --output-dir outputs/figures --page-url "http://127.0.0.1:${TSNCD_PAGE_PORT:-3000}/"

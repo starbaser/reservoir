@@ -1,11 +1,10 @@
 """Where the tsncd bundle is, for PyNCD's page writer and headless capture.
 
 PyNCD reads the bundle through the `TSNCD_DIST` environment variable. The Nix shell
-exports it. Without Nix, `tools/build_tsncd_bundle.py` builds the bundle under
-`third_party/tsncd/dist` and writes the variable to `.env`, which `process-compose`
-loads and which `uv run --env-file .env` would load too. A plain `uv run` loads
-neither, so the entry points of this package name the vendored bundle themselves when
-the variable is unset and the bundle is there.
+exports it. Without Nix, `tools/setup_tsncd.py` builds the bundle under
+`third_party/tsncd/dist` and writes the variable to `.env`, which `uv run --env-file
+.env` would load. A plain `uv run` does not, so the entry points of this package name
+the vendored bundle themselves when the variable is unset and the bundle is there.
 """
 
 from __future__ import annotations

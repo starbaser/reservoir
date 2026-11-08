@@ -35,35 +35,36 @@ holds this skill is the worked example of every route below.
   page writer and `notebooks/display`, and `headless` (`playwright`) for the headless
   capture, which also needs a Chromium: `playwright install chromium`, or on NixOS the
   nixpkgs `playwright-driver.browsers` through `PLAYWRIGHT_BROWSERS_PATH`.
-- **tsncd** is an npm project (`package.json` with webpack 5, TypeScript 5.9, `ws`, KaTeX,
-  MathJax, `html-to-image`). `npm ci && npm run build` writes `dist/` holding
+- **tsncd** is an npm project (`package.json` with webpack 5, TypeScript 5.9, `ws`,
+  KaTeX, MathJax, `html-to-image`). `npm ci && npm run build` writes `dist/` holding
   `index.html`, `assets/main.*.js` and
   `json_files/deepseek_v41_flash_text_only_quantised.json`. `npm run server` runs
-  `node src/run_server.ts` directly, so the Node version must strip types (Node 24 does).
+  `node src/run_server.ts` directly, so the Node version must strip types (Node 24
+  does).
 - The two are a matched pair. tsncd constructs every term positionally from PyNCD's
   field order, so mixing revisions silently swaps members or refuses whole terms.
-- Neither repository carries a LICENSE file at these revisions; the papers are CC BY 4.0.
-  Record the question before redistributing.
+- Neither repository carries a LICENSE file at these revisions; the papers are CC BY
+  4.0. Record the question before redistributing.
 
 ## Pins
 
-| Package | Revision | Upstream base | Source |
-|---|---|---|---|
-| PyNCD | `78f465c67ad95672064c6d3c6205c65fb2083ce4` (2026-11-08) | `a051f8f2df12be97bb438a7b19980513fbe11c36` (2026-10-02) | `https://github.com/starbaser/pyncd.git` |
-| tsncd | `b8649a6492c15244cf2b0be49e0acf2e2abb32d7` (2026-10-25) | `70034600050b8297a3fe91ca7b6cc75c1d26bbc2` (2026-10-02) | `https://github.com/starbaser/tsncd.git` |
+| Package | Revision                                                | Upstream base                                           | Source                                   |
+| ------- | ------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------- |
+| PyNCD   | `78f465c67ad95672064c6d3c6205c65fb2083ce4` (2026-11-08) | `a051f8f2df12be97bb438a7b19980513fbe11c36` (2026-10-02) | `https://github.com/starbaser/pyncd.git` |
+| tsncd   | `b8649a6492c15244cf2b0be49e0acf2e2abb32d7` (2026-10-25) | `70034600050b8297a3fe91ca7b6cc75c1d26bbc2` (2026-10-02) | `https://github.com/starbaser/tsncd.git` |
 
 Over its base, PyNCD carries `fe41ce8` (`graphs`: a pass-through wire is held as an
-identity only for the block that writes it), `78c7a89` (`linear`: a parametrised `Linear`
-or `Transpose` labels every target position separately, so `Linear((m,), (m,))` is a
-square map in forward and reverse), `9a90fe1` (`graphs`: wiring-only, discarded and
+identity only for the block that writes it), `78c7a89` (`linear`: a parametrised
+`Linear` or `Transpose` labels every target position separately, so `Linear((m,), (m,))`
+is a square map in forward and reverse), `9a90fe1` (`graphs`: wiring-only, discarded and
 identity blocks and loop ports survive recycling), two `Term` fixes to uid equality,
 `988c693` (the relay reads `HOST` and `PORT`), `31956bf` (`torch_compile`:
 `weave_displacement` matches shape entries as instances) and `78f465c` (the packaging).
 tsncd `b8649a6` adds only its guidance to its upstream base.
 
 The `npmDepsHash` of tsncd `b8649a6` under Node 24 is
-`sha256-bH3DY2wG6U1S4T4E2Ok+UYflahRUNQnzGw15A+7+O0E=`. A pin that changes
-`package.json` or `package-lock.json` needs a new hash.
+`sha256-bH3DY2wG6U1S4T4E2Ok+UYflahRUNQnzGw15A+7+O0E=`. A pin that changes `package.json`
+or `package-lock.json` needs a new hash.
 
 ## Route 1: plain uv
 
@@ -142,39 +143,40 @@ npm ci && npm run build            # writes dist/
 export TSNCD_DIST="$PWD/dist"
 ```
 
-The reservoir repository's `tools/build_tsncd_bundle.py` does this at the pinned commit
-and writes `TSNCD_DIST` to `.env`. `websocket_transfer.headless.find_dist` resolves an
-explicit `dist=` argument, then `$TSNCD_DIST`, then a `tsncd/dist` or `tsncd-public/dist`
-sibling of the pyncd package directory. An installed pyncd has no such sibling, so every
-consumer sets `TSNCD_DIST`. Rebuild the bundle after any tsncd change; headless captures
-and standalone pages render whatever was last built. The bundle dials the relay port
-compiled into it at build time, `PORT` with the default 8765.
+The reservoir repository's `tools/setup_tsncd.py` does this at the pinned commit and
+writes `TSNCD_DIST` to `.env`. `websocket_transfer.headless.find_dist` resolves an
+explicit `dist=` argument, then `$TSNCD_DIST`, then a `tsncd/dist` or
+`tsncd-public/dist` sibling of the pyncd package directory. An installed pyncd has no
+such sibling, so every consumer sets `TSNCD_DIST`. Rebuild the bundle after any tsncd
+change; headless captures and standalone pages render whatever was last built. The
+bundle dials the relay port compiled into it at build time, `PORT` with the
+default 8765.
 
-## Serving pages and the relay
+## Running the live page viewer
 
-The relay and a static site for the standalone pages, as two long-running processes
-(process-compose shown; any supervisor works):
+tsncd ships both halves of the viewer, and a consumer runs them from its tsncd checkout
+as two long-running processes (process-compose shown; any supervisor works):
 
 ```yaml
 processes:
-  site:
-    # tsncd's bundle at the root (it loads its assets from "/"), with the standalone
-    # pages under /diagrams/.
-    command: >-
-      sh -c 'set -eu;
-      site="$PWD/outputs/site"; rm -rf "$site"; mkdir -p "$site";
-      for entry in "$TSNCD_DIST"/*; do ln -s "$entry" "$site/"; done;
-      ln -s "$PWD/outputs/diagrams" "$site/diagrams";
-      exec python -m http.server "$${SITE_PORT:-8780}" --bind 127.0.0.1 --directory "$site"'
   relay:
-    # pyncd's relay between a sending Python process and an open tsncd page, on localhost:8765.
-    command: >-
-      python -c 'import asyncio, websocket_transfer.websockets_transfer as w;
-      asyncio.run(w.DataServer().main())'
+    # tsncd's relay between a sending Python process and every open page, on
+    # localhost:8765. It holds the last model, so a refreshed page redraws it.
+    command: npm run server
+    working_dir: third_party/tsncd
+  page:
+    # tsncd's page on http://127.0.0.1:3000/, which connects to the relay.
+    command: npm run dev -- --no-open
+    working_dir: third_party/tsncd
 ```
 
-`run_server.py` is not in the wheel, so the relay is started through the module as above.
-`npm run server` in the tsncd checkout is the same relay. Both read `HOST` and `PORT`.
+`websocket_transfer.send_morphism.send_morphism(term)` then redraws every open page, and
+`websocket_transfer.websockets_transfer.capture_term` asks the page for its drawing
+through the relay. pyncd's `run_server.py` is the same relay with the same messages and
+is not in the wheel;
+`python -c 'import asyncio, websocket_transfer.websockets_transfer as w; asyncio.run(w.DataServer().main())'`
+starts it from an installed pyncd. One relay at a time holds port 8765, and the bundle
+dials the port compiled into it.
 
 ## Training a model that holds parameter arrays
 
@@ -182,9 +184,9 @@ processes:
 holds its weight as an `nn.Parameter`. A zero-input `Linear`, used to author a parameter
 array, needs PyNCD's tape pipeline. The
 [gradient tutorial](https://github.com/starbaser/pyncd/blob/78f465c67ad95672064c6d3c6205c65fb2083ce4/notebooks/website/tutorial/check_gradients_in_torch.py)
-uses `grab_parameters`, binds sizes, removes grouping blocks, calls `detape`, then compiles
-the resulting pure expression. Follow that pipeline when the caller owns named weight
-tensors and supplies them after the model inputs:
+uses `grab_parameters`, binds sizes, removes grouping blocks, calls `detape`, then
+compiles the resulting pure expression. Follow that pipeline when the caller owns named
+weight tensors and supplies them after the model inputs:
 
 ```python
 import algebra.discovering_broadcasts as discovering_broadcasts
@@ -207,21 +209,22 @@ weights = {name: torch.randn(shape).requires_grad_() for name, shape in ...}
 (y,) = module(*data, *(weights[name] for name in names))  # the weights trail the data
 ```
 
-The code above is a pipeline sketch: derive `shape` from the sized pure domain, and match
-the callable's return structure to the particular expression. The caller hands these
-external weight tensors to an optimiser. The tape names and order come from `detape`.
+The code above is a pipeline sketch: derive `shape` from the sized pure domain, and
+match the callable's return structure to the particular expression. The caller hands
+these external weight tensors to an optimiser. The tape names and order come from
+`detape`.
 
 For a boxed model with an internally published activation, the
 [executable tutorial example](../scripts/tutorial_model.py) first opens `ParaWrap` with
-`.to_base()` and boxes with their operator's `.expand()`, using PyNCD's `Endofunctor`
-to traverse the expression. After removing grouping blocks, `tie_tapes` connects the
+`.to_base()` and boxes with their operator's `.expand()`, using PyNCD's `Endofunctor` to
+traverse the expression. After removing grouping blocks, `tie_tapes` connects the
 internal publisher to its readers; parameter extraction and `detape` then expose the
 external weights. The original expression is retained for `show_diagram`. This example
 does not establish support for arbitrary nested tape boxes or repeated tape operations.
 
 `detape` reaches top-level tape operations only. Remove ordinary grouping blocks first;
-it cannot detape a grab inside a repeated block. A directly compiled model whose parameters
-all ride input-bearing `Linear`s may repeat a block, as shown by
+it cannot detape a grab inside a repeated block. A directly compiled model whose
+parameters all ride input-bearing `Linear`s may repeat a block, as shown by
 `torch_compile.ConstructedBlock`.
 
 Fix `78c7a89` labels the target positions separately, so a grabbed `Linear((m,), (m,))`
@@ -249,8 +252,8 @@ matches the authored model, or grab the gain and use the tape pipeline.
 
 The rest of `notebooks/` (the notebooks, the website tutorial modules such as
 `check_gradients_in_torch.py`, the SOTA model packages), `example_notebooks/`,
-`validations/`, `validate_repository.py`, `run_server.py`, `obsidian/` and `_guide/`. The
-wheel adds `notebooks/display` alone, which is what drawing needs. Read upstream's
+`validations/`, `validate_repository.py`, `run_server.py`, `obsidian/` and `_guide/`.
+The wheel adds `notebooks/display` alone, which is what drawing needs. Read upstream's
 notebooks and vault in the repository.
 
 ## Caveats to carry into the project guide
@@ -260,18 +263,20 @@ notebooks and vault in the repository.
 - Literal mismatched extents may be merged rather than rejected by composition. Keep
   model sizes symbolic, assign them with `NumericConfig`, and assert the sized domain
   and codomain. `NumericConfig.assign_values` does not reject an unknown name.
-- `ops.Einops.template('a b -> a b')` does not reliably hold the entire rank-two
-  array at this revision. Use `cat.ProdObject((array,)).identity()` for a held wire.
+- `ops.Einops.template('a b -> a b')` does not reliably hold the entire rank-two array
+  at this revision. Use `cat.ProdObject((array,)).identity()` for a held wire.
 - `cat.Composed` and `cat.ProductOfMorphisms` check nothing. Assert `dom()` and `cod()`.
 - Equal axis names are not equal axes; equal `nm.FreeNumeric.named` names are the same
   symbol. Alignment is positional.
 - A term with no matching tsncd class cannot be drawn. Check the mirror's term classes
-  for every new operator before promising a diagram; compiler support is a separate question.
+  for every new operator before promising a diagram; compiler support is a separate
+  question.
 - tsncd's `defaultRenderHandlerSettings.debugBorders` is `true`; pyncd's
   `display_settings` sends `false`. A custom sender must send it too.
 - `show_diagram` falls back to its own headless browser when the open page does not
   answer a capture. A check of the page viewer goes through
-  `websocket_transfer.capture.capture_morphism` or `wst.capture_term`, which raise instead.
+  `websocket_transfer.capture.capture_morphism` or `wst.capture_term`, which raise
+  instead.
 - The relay port 8765 is held by exactly one process; the page port is 3000 under
   `npm run dev`.
 

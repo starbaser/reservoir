@@ -1,13 +1,14 @@
-"""Build the tsncd bundle at the revision `flake.lock` pins, for an installation without
-Nix.
+"""Set up tsncd at the revision `flake.lock` pins, under `third_party/tsncd/`.
 
-    python3 tools/build_tsncd_bundle.py
+    python3 tools/setup_tsncd.py
 
-tsncd is cloned under `third_party/tsncd/` and its bundle is built with `npm ci` and
-`npm run build`. PyNCD's page writer and headless capture read the bundle through
-`TSNCD_DIST`, and the script writes that variable into `.env` when the file does not
-name it. It needs `git`, `node` 24 and `npm` on the path and uses nothing outside the
-standard library, because it runs before the Python environment exists.
+tsncd is cloned at the pinned commit, its npm dependencies are installed with
+`npm ci`, and its bundle is built with `npm run build`. The checkout is where `just up`
+runs tsncd's own relay (`npm run server`) and page (`npm run dev`). PyNCD's page writer
+and headless capture read the bundle through `TSNCD_DIST`, and the script writes that
+variable into `.env` when the file does not name it. The script needs `git`, `node` 24
+and `npm` on the path and uses nothing outside the standard library, because it runs
+before the Python environment exists.
 """
 
 from __future__ import annotations
@@ -69,8 +70,9 @@ def clone_at(*, pin: Pin, into: pathlib.Path) -> None:
     run(command=["git", "checkout", "--quiet", "--detach", "FETCH_HEAD"], cwd=into)
 
 
-def build_tsncd(*, pin: Pin) -> pathlib.Path:
-    """tsncd at `pin.rev` under `third_party/tsncd/`, with its bundle built."""
+def set_up_tsncd(*, pin: Pin) -> pathlib.Path:
+    """tsncd at `pin.rev` under `third_party/tsncd/`, with its dependencies installed
+    and its bundle built, returning the bundle directory."""
     if TSNCD_DIRECTORY.exists():
         shutil.rmtree(TSNCD_DIRECTORY)
     clone_at(pin=pin, into=TSNCD_DIRECTORY)
@@ -100,8 +102,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         if shutil.which(tool) is None:
             sys.exit(f"{tool} is not on the path")
     pin = pin_from_lock(name="tsncd")
-    dist = build_tsncd(pin=pin)
-    print(f"tsncd {pin.rev[:7]} bundle is in {dist.relative_to(ROOT)}")
+    dist = set_up_tsncd(pin=pin)
+    print(f"tsncd {pin.rev[:7]} is set up, with its bundle in {dist.relative_to(ROOT)}")
     if record_bundle_in_env_file():
         print(f"wrote {TSNCD_DIST_LINE} to .env")
 
