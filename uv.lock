@@ -836,7 +836,7 @@ wheels = [
 [[package]]
 name = "pyncd"
 version = "0.1.0"
-source = { git = "https://github.com/starbaser/pyncd.git?branch=main#6f5866c00f8b3de9072667bf9d1074d0699d1958" }
+source = { git = "https://github.com/starbaser/pyncd.git?branch=main#fea0471506a772235025b2477153ac5e25a3aaaf" }
 dependencies = [
     { name = "websockets" },
 ]

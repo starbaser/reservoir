@@ -28,4 +28,4 @@ serve port="3333":
 # Send the echo state network to the relay `just serve` runs, through PyNCD's own
 # send route, so the open page draws it.
 draw port="3333":
-    PORT={{port}} uv run python -c "import asyncio, websocket_transfer.send_morphism as s, websocket_transfer.websockets_transfer as w; from reservoir import echo_state_network as e; asyncio.run(s.send_morphism(e.echo_state_network(), legend=True, inspectionBoxes=True, controls=w.PageControls.SHOWN))"
+    PORT={{port}} uv run python -c "import asyncio, websocket_transfer.send_morphism as s, websocket_transfer.websockets_transfer as w; from reservoir import echo_state_network as e; asyncio.run(s.send_morphism(e.echo_state_network(), debugBorders=False, legend=True, inspectionBoxes=True, controls=w.PageControls.SHOWN))"
