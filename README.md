@@ -38,6 +38,15 @@ labelled by its name, a box is an operation, and the repeated block is the loop 
 pyncd compiles the step of that same expression to PyTorch, so the picture and the computation
 cannot drift apart.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/echo-state-network-dark.png">
+  <img alt="The echo state network as a neural circuit diagram: the reservoir loop over the steps, with the input and recurrent weights feeding tanh and the leak, and the readout W_out after it" src="docs/echo-state-network-light.png">
+</picture>
+
+The figure is tsncd's drawing of the term, captured from the viewer that `just serve` runs. The
+loop body is one step: `W_in` and `W` feed the tanh, the leak mixes the new value with the state
+`h` carried around the loop, and each step writes its state into `H`, which `W_out` reads out.
+
 ## Requirements
 
 - A GPU is optional. The run and the tests use every CUDA device Torch finds and the CPU otherwise.
