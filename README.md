@@ -3,6 +3,8 @@
 An echo state network written as a neural circuit diagram with [pyncd](https://github.com/starbaser/pyncd), drawn with [tsncd](https://github.com/starbaser/tsncd), and run
 in PyTorch.
 
+For [@verlainne](https://x.com/cafeantinomie).
+
 ## The model
 
 An echo state network is a dynamical system driven by an input sequence. At step $t$ it receives an
