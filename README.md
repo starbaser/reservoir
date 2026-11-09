@@ -41,10 +41,11 @@ cannot drift apart.
 ## Requirements
 
 - A GPU is optional. The run and the tests use every CUDA device Torch finds and the CPU otherwise.
-- Network access on the first install, for the pyncd repository, the PyPI and PyTorch wheels and
-  tsncd's npm dependencies.
-- Either Nix with flakes, which provides every tool below, or `git`, `uv`, Node 24 with `npm` and
-  `just`. tsncd's README installs Node through nvm.
+- Network access on the first install, for the pyncd repository, the PyPI and PyTorch wheels and,
+  without Nix, the tsncd repository and its npm dependencies.
+- Either Nix with flakes, which provides every tool below, or `git`, `uv`, `just` and Node 24 with
+  `npm`. Node is used once: pyncd's wheel build clones tsncd and builds the diagram page into the
+  wheel, so no tsncd checkout is kept.
 
 ## Installing with Nix
 
@@ -54,7 +55,8 @@ nix develop                  # or: direnv allow
 ```
 
 The shell's `python` is a Nix-built virtual environment with this package editable and pyncd built
-from the commit `uv.lock` resolved from its `main` branch, and the shell holds Node 24 for tsncd.
+from the commit `uv.lock` resolved from its `main` branch. pyncd's wheel carries the tsncd page,
+which the flake takes from tsncd's own flake, so the shell needs no Node and no tsncd checkout.
 
 ## Installing without Nix
 
@@ -64,6 +66,8 @@ uv sync                      # Python 3.14, Torch, pyncd from its repository
 ```
 
 `uv` installs Python 3.14 if the machine has none. Every `just` recipe runs through `uv run`.
+Building pyncd's wheel clones the tsncd revision pyncd pins and runs `npm ci && npm run build`
+inside the build, which is where Node 24 is needed.
 
 ## Running the network
 
@@ -125,11 +129,19 @@ rule for a tape slot, so the loop over the steps is a Python loop that calls the
 
 ## Drawing the diagram
 
-tsncd draws the diagram. Install it and start its relay and its page as [its README](https://github.com/starbaser/tsncd#setup) says.
+tsncd draws the diagram, and pyncd's wheel carries tsncd's page. One command serves the page and
+the relay the page connects to, on one port:
 
-The relay holds the last model it was sent, so a refreshed page draws it again. On the page, the
-buttons switch between three forms of the diagram and two themes, and moving the pointer over
-`W_out` opens a box with the readout's formula.
+```bash
+just serve                   # http://localhost:3333/
+just draw                    # send the network to the relay; the open page draws it
+just serve 8765              # another port; `just draw 8765` sends there
+```
+
+`just serve` runs pyncd's `pyncd-server`, and `just draw` sends the network through pyncd's own
+`send_morphism`. The relay holds the last model it was sent, so a refreshed page draws it again. On
+the page, the buttons switch between three forms of the diagram and two themes, and moving the
+pointer over `W_out` opens a box with the readout's formula.
 
 ## Checks
 

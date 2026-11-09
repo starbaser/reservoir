@@ -1,6 +1,6 @@
 """Compile and draw one tutorial-style model with wires, boxes and a shared tape value.
 
-Run in an environment providing PyNCD, PyTorch and a built TSNCD_DIST:
+Run in an environment providing PyNCD, installed from its wheel, and PyTorch:
     python tutorial_model.py --output-dir /path/to/diagrams
 
 Construction follows BuildingAModel sections 9–11. Parameter extraction follows

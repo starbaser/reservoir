@@ -836,13 +836,15 @@ wheels = [
 [[package]]
 name = "pyncd"
 version = "0.1.0"
-source = { git = "https://github.com/starbaser/pyncd.git?branch=main#78f465c67ad95672064c6d3c6205c65fb2083ce4" }
+source = { git = "https://github.com/starbaser/pyncd.git?branch=main#6f5866c00f8b3de9072667bf9d1074d0699d1958" }
+dependencies = [
+    { name = "websockets" },
+]
 
 [package.optional-dependencies]
 diagrams = [
     { name = "ipykernel" },
     { name = "pandas" },
-    { name = "websockets" },
 ]
 torch = [
     { name = "einops" },

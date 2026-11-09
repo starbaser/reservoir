@@ -33,10 +33,10 @@ route with ordinary and tape-aware boxes at these revisions.
 | Need | Route | Needs |
 |---|---|---|
 | Check the algebra of a term | `agent_display` listing | nothing |
-| Live diagram while iterating | A: relay on port 8765 + page from `npm run dev` | node, a browser tab |
-| A file a reader opens anywhere, inspection boxes working | E in `HTML` mode: `notebook_diagrams.show_diagram` | `notebooks/display` installed, a built tsncd `dist/` (`TSNCD_DIST`) |
-| The bare page writer under that route | B: `standalone_page.save_standalone_page` | a built tsncd `dist/` (`TSNCD_DIST`) |
-| PNG, SVG or PDF figures from a script | C: `headless.save_figures` | `playwright` + chromium + `dist/` |
+| Live diagram while iterating | A: `pyncd-server`, the relay and the page on one port | a browser tab |
+| A file a reader opens anywhere, inspection boxes working | E in `HTML` mode: `notebook_diagrams.show_diagram` | `notebooks/display` installed; the page the wheel carries |
+| The bare page writer under that route | B: `standalone_page.save_standalone_page` | the page the wheel carries |
+| PNG, SVG or PDF figures from a script | C: `headless.save_figures` | `playwright` + chromium; the page the wheel carries |
 | Image of what the browser currently shows | D: `npm run capture` in tsncd | relay + open page |
 | Notebook cells with embedded figures | E: `notebooks/display/notebook_diagrams.py` | `notebooks/display` installed |
 
@@ -70,15 +70,15 @@ read it as text.
 ## Route A: relay and browser page
 
 The relay sits between a sending Python process and the page, holds the most recent term,
-and re-sends it on refresh. Only one relay may hold port 8765.
+and re-sends it on refresh. Only one relay may hold a port.
 
 ```bash
-# in the tsncd checkout
-npm install && npm run server      # relay on ws://localhost:8765 (binds 127.0.0.1 and ::1)
-npm run dev                        # page on http://localhost:3000, reconnects on refresh
-# or, the same relay from pyncd:
-python run_server.py                                        # in a pyncd checkout
-python -c 'import asyncio, websocket_transfer.websockets_transfer as w; asyncio.run(w.DataServer().main())'   # installed pyncd
+pyncd-server                       # relay and page on http://localhost:8765/
+PORT=3333 pyncd-server             # another port; senders read PORT too
+npx tsncd serve                    # the same relay and page from an installed tsncd
+# development alone, in a tsncd checkout:
+npm run server                     # the relay on ws://localhost:8765
+npm run dev                        # the page on http://localhost:3000, connecting to 8765
 ```
 
 Send from Python:
@@ -145,9 +145,9 @@ standalone_page.save_standalone_page(
 )
 ```
 
-The bundle is located by `headless.find_dist`: an explicit `dist=`, else `$TSNCD_DIST`,
-else `tsncd/dist` or `tsncd-public/dist` beside the pyncd package directory. An installed
-pyncd has no sibling checkout, so set `TSNCD_DIST` to the built `dist/`.
+The page is located by `websocket_transfer.bundle.locate_bundle`: an explicit `dist=`,
+else `$TSNCD_DIST`, else the page the installed wheel carries. A pyncd checkout installed
+editable carries no page, so there `TSNCD_DIST` names a built one.
 `save_page_with_variants` and `save_page_folder_with_variants` write one page carrying
 several variants of a model with a selector.
 
@@ -164,7 +164,6 @@ On NixOS, Playwright's downloaded Chromium does not run; use the nixpkgs pair in
 ```bash
 BROWSERS=$(nix build --no-link --print-out-paths nixpkgs#playwright-driver.browsers)
 PLAYWRIGHT_BROWSERS_PATH="$BROWSERS" PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true \
-TSNCD_DIST=/path/to/tsncd/dist \
 nix shell --impure --expr '(import <nixpkgs> {}).python313.withPackages (p: [ p.playwright p.websockets ])' \
   --command python figures.py
 ```
@@ -368,9 +367,11 @@ so use a Node that strips types (24 does).
 - **A multi-input `Broadcasted` draws with its anchors unlinked.** Its inputs are
   reindexed differently from each other (the `JOIN` display mode, not implemented). Expand
   it with `algebra/node_expansion.py`'s `expand_to_nodes` into one `View` per input.
-- **Headless capture or a page shows an old renderer.** `dist/` is stale; `npm run build`,
-  reload the tab, restart the kernel or call `close_renderer()`.
-- **`No built tsncd bundle found`.** Set `TSNCD_DIST` or pass `dist=`.
+- **Headless capture or a page shows an old renderer.** The page in the wheel is the one
+  PyNCD pinned; reinstall PyNCD after moving its pin, or, with `TSNCD_DIST` set, rebuild
+  that `dist/`, then reload the tab, restart the kernel or call `close_renderer()`.
+- **`No built tsncd page found`.** Install PyNCD from a wheel, set `TSNCD_DIST`, or pass
+  `dist=`.
 - **Figure has outlines around every element.** It was sent with `debugBorders: true`;
   pass `debugBorders=False`.
 - **`ValueError: HypergraphObject(...) is not in list` from `hypergraph_to_morphism`.** A

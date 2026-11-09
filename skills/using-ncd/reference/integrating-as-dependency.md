@@ -26,23 +26,29 @@ holds this skill is the worked example of every route below.
 - **pyncd** is a flat repository of top-level Python packages (`data_structure`,
   `construction_helpers`, `algebra`, `graphs`, `para`, `torch_compile`,
   `websocket_transfer`, ...). Upstream ships no packaging metadata; the fork adds a
-  `pyproject.toml` (hatchling) whose wheel holds the eighteen top-level packages and
-  `notebooks/display`, the notebook drawing helper, and leaves the other notebooks, the
-  vault and `run_server.py` out. Requirements: Python 3.13 or later (3.13 generics with
-  defaults are used throughout; observed working on 3.14). The core needs nothing beyond
-  the standard library. The extras are `torch` (`torch`, `einops`, `numpy`) for
-  `torch_compile`, `diagrams` (`websockets`, `ipykernel`, `pandas`) for the relay, the
-  page writer and `notebooks/display`, and `headless` (`playwright`) for the headless
-  capture, which also needs a Chromium: `playwright install chromium`, or on NixOS the
-  nixpkgs `playwright-driver.browsers` through `PLAYWRIGHT_BROWSERS_PATH`.
+  `pyproject.toml` (hatchling) whose wheel holds the eighteen top-level packages,
+  `notebooks/display`, the notebook drawing helper, and tsncd's built page under
+  `websocket_transfer/tsncd_bundle/`, and leaves the other notebooks and the vault out.
+  `hatch_build.py` writes the page at wheel build time from the tsncd revision
+  `[tool.pyncd.tsncd]` pins, by cloning it and running `npm ci && npm run build`, or by
+  copying the directory `PYNCD_TSNCD_BUNDLE` names. `pyncd-server` is the console
+  script: the relay, serving that page on the same port. Requirements: Python 3.13 or
+  later (3.13 generics with defaults are used throughout; observed working on 3.14).
+  `websockets` is the one base dependency. The extras are `torch` (`torch`, `einops`,
+  `numpy`) for `torch_compile`, `diagrams` (`ipykernel`, `pandas`) for
+  `notebooks/display`, and `headless` (`playwright`) for the headless capture, which
+  also needs a Chromium: `playwright install chromium`, or on NixOS the nixpkgs
+  `playwright-driver.browsers` through `PLAYWRIGHT_BROWSERS_PATH`.
 - **tsncd** is an npm project (`package.json` with webpack 5, TypeScript 5.9, `ws`,
-  KaTeX, MathJax, `html-to-image`). `npm ci && npm run build` writes `dist/` holding
-  `index.html`, `assets/main.*.js` and
-  `json_files/deepseek_v41_flash_text_only_quantised.json`. `npm run server` runs
-  `node src/run_server.ts` directly, so the Node version must strip types (Node 24
-  does).
+  KaTeX, MathJax, `html-to-image`) that installs as a package:
+  `npm install github:starbaser/tsncd` builds it through `prepare`, `npx tsncd serve`
+  runs the relay and serves the page on one port, and `npx tsncd dist-path` prints the
+  bundle directory. Its flake exports `packages.tsncd`, the installed package with the
+  `tsncd` command, and `packages.bundle`, the page alone. Node 24 or later.
 - The two are a matched pair. tsncd constructs every term positionally from PyNCD's
-  field order, so mixing revisions silently swaps members or refuses whole terms.
+  field order, so mixing revisions silently swaps members or refuses whole terms. PyNCD
+  pins the tsncd revision its page is built from, so a consumer moves PyNCD and gets the
+  matching page.
 - Neither repository carries a LICENSE file at these revisions; the papers are CC BY
   4.0. Record the question before redistributing.
 
@@ -68,38 +74,27 @@ dependencies = ["einops>=0.8.2", "numpy>=2", "pyncd[diagrams,torch]", "torch>=2.
 pyncd = { git = "https://github.com/starbaser/pyncd.git", branch = "main" }
 ```
 
-Then `uv lock && uv sync`. For the headless capture add `playwright` and run
-`uv run playwright install chromium`. The tsncd bundle is built separately, as the
-section below says, and reaches every process that writes a page through `TSNCD_DIST`:
-export it from the shell, put `TSNCD_DIST=/path/to/tsncd/dist` in a `.env` file and run
-with `uv run --env-file .env python ...`, or pass `dist=` explicitly to
-`save_standalone_page`, `save_figures` and `HeadlessRenderer`.
+Then `uv lock && uv sync`. Building PyNCD's wheel clones tsncd and runs npm, so `git`
+and Node 24 are on the path at install. For the headless capture add `playwright` and
+run `uv run playwright install chromium`. The installed wheel carries the tsncd page,
+and every process that writes or serves a page finds it through
+`websocket_transfer.bundle.locate_bundle`: an explicit `dist=` argument, then
+`TSNCD_DIST`, then the packaged page. `TSNCD_DIST` is for a development checkout of
+PyNCD, whose editable install carries no page.
 
 ## Route 2: Nix flake with uv2nix
 
 The same `pyproject.toml` and `uv.lock` as Route 1. uv2nix fetches the git dependency
 from the lock; a git dependency is built from source, so its build system is named in an
-override. The flake also builds the tsncd bundle and exports it to the shell.
+override. The sandbox cannot clone tsncd, so the flake takes tsncd's page from tsncd's
+own flake and hands it to PyNCD's wheel build.
 
 ```nix
-inputs.tsncd = { url = "github:starbaser/tsncd"; flake = false; };
-
-# tsncd's production bundle, read through TSNCD_DIST
-mkTsncdBundle = pkgs:
-  let manifest = builtins.fromJSON (builtins.readFile "${tsncd}/package.json"); in
-  pkgs.buildNpmPackage {
-    pname = manifest.name; inherit (manifest) version;
-    src = tsncd; nodejs = pkgs.nodejs_24;
-    npmDepsHash = "sha256-bH3DY2wG6U1S4T4E2Ok+UYflahRUNQnzGw15A+7+O0E=";
-    installPhase = ''
-      runHook preInstall
-      mkdir -p "$out"; cp -r dist/. "$out/"
-      runHook postInstall
-    '';
-  };
+inputs.tsncd = { url = "github:starbaser/tsncd/main"; inputs.nixpkgs.follows = "nixpkgs"; };
 
 # in the pyproject overlay overrides
 pyncd = prev.pyncd.overrideAttrs (old: {
+  PYNCD_TSNCD_BUNDLE = "${tsncd.packages.${system}.bundle}";
   nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ final.resolveBuildSystem { hatchling = [ ]; };
 });
 
@@ -109,44 +104,36 @@ env = {
   UV_PROJECT_ENVIRONMENT = "${devEnv}";
   UV_PYTHON = "${devEnv}/bin/python";
   UV_PYTHON_DOWNLOADS = "never";
-  TSNCD_DIST = "${tsncdBundle}";
   PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
   PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "1";
 };
 ```
 
-Expose `packages.tsncd = mkTsncdBundle pkgs` and `checks.tsncd` so `nix build .#tsncd`
-and `nix flake check` build the bundle. A CUDA Torch wheel needs the usual autoPatchelf
-and driver-runpath overrides beside this; they are independent of PyNCD. The reservoir
-repository's `flake.nix` is a complete instance of this route.
+Keep the `tsncd` input at the revision PyNCD's `[tool.pyncd.tsncd]` pins, so the wheel
+built with npm and the wheel built by the flake carry the same page. A CUDA Torch wheel
+needs the usual autoPatchelf and driver-runpath overrides beside this; they are
+independent of PyNCD. The reservoir repository's `flake.nix` is a complete instance of
+this route.
 
-## The tsncd bundle
+## The tsncd page
 
-With Nix, Route 2's `mkTsncdBundle` builds `dist/` reproducibly. Without it:
-
-```bash
-git clone https://github.com/starbaser/tsncd.git && cd tsncd
-npm ci && npm run build            # writes dist/
-export TSNCD_DIST="$PWD/dist"
-```
-
-The reservoir repository holds this checkout as the git submodule `tsncd/`.
-`websocket_transfer.headless.find_dist` resolves an explicit `dist=` argument, then
-`$TSNCD_DIST`, then a `tsncd/dist` or `tsncd-public/dist` sibling of the pyncd package
-directory. An installed pyncd has no such sibling, so every consumer sets `TSNCD_DIST`.
-Rebuild the bundle after any tsncd change; headless captures and standalone pages render
-whatever was last built. The bundle dials the relay port compiled into it at build time,
-`PORT` with the default 8765.
+An installed PyNCD wheel carries the page under `websocket_transfer/tsncd_bundle/`,
+with `bundle.json` naming the tsncd repository and revision it was built from.
+`websocket_transfer.bundle.locate_bundle` resolves an explicit `dist=` argument, then
+`$TSNCD_DIST`, then the packaged page, and every page writer and the headless capture
+go through it. A PyNCD checkout installed editable carries no page and names one
+through `TSNCD_DIST`, for example `npx tsncd dist-path` of an installed tsncd or the
+`dist/` of a tsncd checkout after `npm run build`.
 
 ## Running the live page viewer
 
-The viewer is tsncd's, run in its checkout as its README says: `npm run server` is the
-relay on localhost:8765 and `npm run dev` is the page, which connects to the relay.
-`notebook_diagrams.show_diagram` in `BROWSER` mode, or
-`websocket_transfer.send_morphism.send_morphism(term)`, sends a term to the relay and
-every open page redraws it. pyncd's `run_server.py` is the same relay with the same
-messages; one relay at a time holds the port, and the bundle dials the port compiled
-into it.
+`pyncd-server` runs the relay and serves the page on one port, `8765` unless `PORT` or
+`--port` says otherwise, and the address it prints is the one to open. The served page
+connects to the relay at its own origin. `notebook_diagrams.show_diagram` in `BROWSER`
+mode, or `websocket_transfer.send_morphism.send_morphism(term)`, sends a term to the
+relay, with `PORT` naming the relay's port, and every open page redraws it. tsncd's
+`tsncd serve` and `npm run server` are the same relay with the same messages; one relay
+at a time holds a port.
 
 ## Training a model that holds parameter arrays
 
@@ -223,7 +210,7 @@ the authored model, or grab the gain and use the tape pipeline.
 
 The rest of `notebooks/` (the notebooks, the website tutorial modules such as
 `check_gradients_in_torch.py`, the SOTA model packages), `example_notebooks/`,
-`validations/`, `validate_repository.py`, `run_server.py`, `obsidian/` and `_guide/`.
+`validations/`, `validate_repository.py`, `obsidian/` and `_guide/`.
 The wheel adds `notebooks/display` alone, which is what drawing needs. Read upstream's
 notebooks and vault in the repository.
 
@@ -246,20 +233,20 @@ notebooks and vault in the repository.
   `display_settings` sends `false`. A custom sender must send it too.
 - `show_diagram` falls back to its own headless browser when the open page does not
   answer a capture, so a capture says nothing about whether a page is open.
-- The relay port 8765 is held by exactly one process; the page port is 3000 under
-  `npm run dev`.
+- A relay port is held by exactly one process. `pyncd-server` and `tsncd serve` serve
+  the page on the relay's port; `npm run dev` serves a development page on 3000.
 
 ## Integration checklist
 
 ```text
 - [ ] pin PyNCD and tsncd to a matched pair; record both revisions in the project guide
 - [ ] uv source: pyncd as a git dependency at one commit; with Nix, the hatchling override for it
-- [ ] flake: tsncd input + buildNpmPackage with npmDepsHash; dev shell exports TSNCD_DIST and PLAYWRIGHT_BROWSERS_PATH
-- [ ] without Nix: the tsncd checkout at the pinned commit, built with `npm install && npm run build`, named by TSNCD_DIST
-- [ ] `python -c "import construction_helpers, websocket_transfer.headless as h; print(h.find_dist())"` succeeds
+- [ ] flake: tsncd flake input at the revision PyNCD pins, handed to the wheel build through PYNCD_TSNCD_BUNDLE; dev shell exports PLAYWRIGHT_BROWSERS_PATH for headless capture
+- [ ] without Nix: git and Node 24 on the path when `uv sync` builds PyNCD's wheel
+- [ ] `python -c "import websocket_transfer.bundle as b; print(b.locate_bundle())"` succeeds
 - [ ] extras: pyncd[torch] for compilation, pyncd[diagrams] for the relay and pages, pyncd[headless] for headless capture
 - [ ] a model with parameter arrays follows `grab_parameters`, size binding, grouping-block removal, `detape` and `ConstructedModule.construct`; a local Torch constructor is registered only after checking both registries
 - [ ] a render module draws every model with notebook_diagrams.show_diagram (HTML, INTERACTIVE) and writes its listing
 - [ ] executable models compare outputs and gradients with a plain-Torch control; a loop the compiler cannot run has its body compiled and is iterated from Python
-- [ ] only the render module imports notebooks/display; nothing imports run_server.py
+- [ ] only the render module imports notebooks/display
 ```

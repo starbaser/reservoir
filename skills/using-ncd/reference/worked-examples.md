@@ -39,8 +39,8 @@ addition, and apply SiLU. Because these readers genuinely touch the tape, each i
 boxed with `ParaBlockOperator`; ordinary components need no tape-aware box.
 
 Run `python skills/using-ncd/scripts/tutorial_model.py --output-dir /path/to/diagrams`
-in a consumer environment with PyNCD, PyTorch and
-`TSNCD_DIST`. The script binds sizes, expands boxes through PyNCD's native
+in a consumer environment with PyNCD, installed from its wheel, and PyTorch. The
+script binds sizes, expands boxes through PyNCD's native
 `Endofunctor` and operator methods, removes grouping blocks, ties and grabs tape
 slots, detapes, then constructs the module. It compares outputs and gradients of the
 input and four weights with plain Torch before drawing the **same authored term**
@@ -525,5 +525,5 @@ ones against the current source before adopting them:
 - **Every model has a test with an independent Torch control**, comparing outputs and
   gradients, plus the structural assertion that a repeated block's domain equals its
   codomain.
-- **Drawing goes through pyncd's own `notebook_diagrams.show_diagram` against the stock tsncd bundle**
-  from `TSNCD_DIST`. Nothing renders outside the official path.
+- **Drawing goes through pyncd's own `notebook_diagrams.show_diagram` against the stock tsncd page**
+  the wheel carries. Nothing renders outside the official path.

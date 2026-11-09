@@ -21,13 +21,20 @@
       inputs.uv2nix.follows = "uv2nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # The page PyNCD's wheel carries, built by tsncd's own flake.
+    tsncd = {
+      url = "github:starbaser/tsncd/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # PyNCD is a git dependency in uv.lock, pinned to one commit there, and uv2nix
-  # fetches it from that lock. tsncd is the git submodule tsncd/, pinned by its
-  # gitlink and run by its own npm scripts. The two are a matched pair, so move the
-  # pins together.
-  outputs = { self, nixpkgs, uv2nix, pyproject-nix, pyproject-build-systems, ... }:
+  # fetches it from that lock. PyNCD's wheel build takes the tsncd page from the
+  # tsncd input in place of cloning and building it with npm, which the sandbox
+  # could not do. PyNCD pins the tsncd revision its page is built from, so the pair
+  # moves with `uv lock --upgrade-package pyncd` and `nix flake update tsncd`.
+  outputs = { self, nixpkgs, uv2nix, pyproject-nix, pyproject-build-systems, tsncd, ... }:
     let
       inherit (nixpkgs) lib;
       forAllSystems = lib.genAttrs [ "x86_64-linux" "aarch64-linux" ];
@@ -82,8 +89,10 @@
             in
             lib.genAttrs nvidiaPackages (name: withDriverRunpath name (_: { }))
             // {
-              # A git dependency is built from source, so its build system is named here.
+              # A git dependency is built from source, so its build system is named here,
+              # and its build hook copies the tsncd page from the flake input.
               pyncd = prev.pyncd.overrideAttrs (old: {
+                PYNCD_TSNCD_BUNDLE = "${tsncd.packages.${system}.bundle}";
                 nativeBuildInputs = (old.nativeBuildInputs or [ ])
                   ++ final.resolveBuildSystem { hatchling = [ ]; };
               });
@@ -147,8 +156,6 @@
               s.devEnv
               s.pkgs.uv
               s.pkgs.just
-              # tsncd's own `npm install`, `npm run server` and `npm run dev` in tsncd/.
-              s.pkgs.nodejs_24
             ];
             env = {
               UV_NO_SYNC = "1";

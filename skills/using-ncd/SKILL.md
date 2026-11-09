@@ -511,8 +511,8 @@ direction of wires for linear operations.
   routes, display settings, the three figure forms, the wire protocol, the mirroring rule,
   adding a glyph, troubleshooting.
 - [reference/integrating-as-dependency.md](reference/integrating-as-dependency.md): the pins,
-  the Nix and plain-uv routes, the tsncd bundle and
-  `TSNCD_DIST`, the relay, training parameter arrays through the tape, caveats, checklist.
+  the Nix and plain-uv routes, the tsncd page the wheel carries, the relay, training
+  parameter arrays through the tape, caveats, checklist.
 - [reference/weaves-wires-morphisms.md](reference/weaves-wires-morphisms.md): the theory
   from the 2026 paper, with its definitions and its code listings mapped to PyNCD classes.
 - [reference/worked-examples.md](reference/worked-examples.md): attention, a transformer,
